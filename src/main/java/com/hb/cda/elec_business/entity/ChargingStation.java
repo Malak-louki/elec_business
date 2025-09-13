@@ -1,10 +1,8 @@
 package com.hb.cda.elec_business.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+
 
 import java.util.Set;
 
@@ -12,9 +10,11 @@ import java.util.Set;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity
 public class ChargingStation {
     @Id
+    @EqualsAndHashCode.Include
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
     private String name;
@@ -27,6 +27,11 @@ public class ChargingStation {
 
     @ManyToOne
     private User user;
+
+    @ManyToOne
+    @JoinColumn(name = "charging_location_id")
+    private ChargingLocation chargingLocation;
+
     @ManyToMany
     @JoinTable(
             name = "Charging_station_availibility",
@@ -34,5 +39,8 @@ public class ChargingStation {
             inverseJoinColumns = @JoinColumn(name = "Id_Availibility")
     )
     private Set<Availability> availabilities;
+
+
+
 
 }

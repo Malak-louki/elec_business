@@ -1,10 +1,7 @@
 package com.hb.cda.elec_business.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.sql.Time;
 import java.util.Date;
@@ -14,16 +11,18 @@ import java.util.Set;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity
 public class Availability {
     @Id
+    @EqualsAndHashCode.Include
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
     private Date day;
     private Time startTime;
     private Time endTime;
 
-    @ManyToMany(mappedBy = "availibilities")
+    @ManyToMany(mappedBy = "availabilities")
     private Set<ChargingStation> chargingStations;
 
 }

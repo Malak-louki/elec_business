@@ -16,10 +16,10 @@ public class Payment {
     @EqualsAndHashCode.Include
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
-    String stripe_payment_entent_id;
-    private String payment_status;
+    String stripePaymentIntentId;
+    private String paymentStatus;
 
-    @OneToMany(mappedBy = "payment")
-    private Set<Booking> bookings;
+    @OneToOne(mappedBy = "payment")
+    private Booking booking;
 
 }

@@ -1,11 +1,13 @@
 package com.hb.cda.elec_business.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Positive;
 import lombok.*;
 
 
-import java.sql.Time;
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalTime;
+
 
 @Getter
 @Setter
@@ -19,10 +21,11 @@ public class Booking
     @EqualsAndHashCode.Include
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
-    private Date startDate;
-    private Date endDate;
-    private Time startHour;
-    private Time endHour;
+    private LocalDate startDate;
+    private LocalTime startHour;
+    private LocalTime endHour;
+    private LocalDate endDate;
+    @Positive
     private Double paidAmount;
     private String bookingStatus;
     private String invoicePath;
@@ -30,8 +33,8 @@ public class Booking
     @JoinColumn(name = "Id_User")
     private User user;
 
-    @ManyToOne
-    @JoinColumn(name = "Id_Payment")
+    @OneToOne
+    @JoinColumn(name = "Id_Payment", unique = true)
     private Payment payment;
 
     @ManyToOne

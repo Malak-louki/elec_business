@@ -1,28 +1,30 @@
 package com.hb.cda.elec_business.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
-import java.sql.Time;
-import java.util.Date;
-import java.util.Set;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
+import static jakarta.persistence.FetchType.LAZY;
+
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 @Entity
 public class Availability {
+
     @Id
     @EqualsAndHashCode.Include
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
-    private Date day;
-    private Time startTime;
-    private Time endTime;
 
-    @ManyToMany(mappedBy = "availabilities")
-    private Set<ChargingStation> chargingStations;
+    @NotNull private LocalDate day;
+    @NotNull private LocalTime startTime;
+    @NotNull private LocalTime endTime;
 
+    @ManyToOne(fetch = LAZY)
+    @JoinColumn(name = "charging_station_id", nullable = false)
+    private ChargingStation chargingStation;
 }

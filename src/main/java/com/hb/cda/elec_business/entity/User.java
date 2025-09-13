@@ -1,6 +1,7 @@
 package com.hb.cda.elec_business.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import lombok.*;
 
 import java.util.Date;
@@ -20,7 +21,7 @@ public class User {
     private String id;
     private String firstName;
     private String lastName;
-
+    @Email
     private String email;
     private String password;
     private String phone;

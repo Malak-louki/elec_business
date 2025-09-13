@@ -14,6 +14,10 @@ import java.time.LocalTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@Table(indexes = {
+        @Index(name="idx_booking_station_start", columnList="Id_Charging_station, startDate, startHour"),
+        @Index(name="idx_booking_station_end",   columnList="Id_Charging_station, endDate, endHour")
+})
 @Entity
 public class Booking
 {

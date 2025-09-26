@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Positive;
 import lombok.*;
 
-
 import java.time.LocalDate;
 import java.time.LocalTime;
 
@@ -14,10 +13,7 @@ import java.time.LocalTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@Table(indexes = {
-        @Index(name="idx_booking_station_start", columnList="Id_Charging_station, startDate, startHour"),
-        @Index(name="idx_booking_station_end",   columnList="Id_Charging_station, endDate, endHour")
-})
+
 @Entity
 public class Booking
 {

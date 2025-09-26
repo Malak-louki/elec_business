@@ -1,4 +1,4 @@
-package com.hb.cda.elec_business.service;
+package com.hb.cda.elec_business.service.implementation;
 
 import com.hb.cda.elec_business.entity.Booking;
 import com.hb.cda.elec_business.entity.ChargingStation;
@@ -14,7 +14,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 @RequiredArgsConstructor
 @Service
-public class BookingService {
+public class BookingServiceImpl {
 
     private final ChargingStationRepository stationRepo;
     private final BookingRepository bookingRepo;
@@ -42,7 +42,7 @@ public class BookingService {
         b.setStartHour(startHour);
         b.setEndDate(endDate);
         b.setEndHour(endHour);
-        b.setUser();
+
 
         return bookingRepo.save(b);
     }

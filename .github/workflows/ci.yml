@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    # Variables d'env lues par Spring et par nos scripts
+    env:
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"  # empeche Spring de tenter 'docker compose' dans le runner
+      SPRING_PROFILES_ACTIVE: ci              # force le profil ci
+      DB_NAME: elec_business
+      DB_USER: ci_user
+      DB_PASSWORD: ci_pwd
+      DB_PORT: "3306"
+
+    services:
+      mysql:
+        image: mysql:8.0.43
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_DATABASE: elec_business
+          MYSQL_USER: ci_user
+          MYSQL_PASSWORD: ci_pwd
+          MYSQL_ROOT_PASSWORD: rootpwd
+          TZ: Europe/Paris
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Wait for MySQL (extra safety)
+        run: |
+          for i in {1..30}; do
+            mysqladmin ping -h 127.0.0.1 -P 3306 -u"$DB_USER" -p"$DB_PASSWORD" --silent && break
+            echo "MySQL is not ready yet..."; sleep 2
+          done
+
+      - name: Build & test (unit + integ)
+        run: ./mvnw -q -DskipITs=false clean verify
+
+      - name: Package (skip tests)
+        run: ./mvnw -q -DskipTests package
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: target/*.jar

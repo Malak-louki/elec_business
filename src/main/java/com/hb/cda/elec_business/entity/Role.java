@@ -2,6 +2,7 @@ package com.hb.cda.elec_business.entity;
 
 import jakarta.persistence.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -10,15 +11,19 @@ public class Role extends Auditable {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
-    @Column(unique = true, nullable = false, length = 100)
-    private String name;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, unique = true)
+    private RoleName name;
     @ManyToMany(mappedBy = "roles")
-    private List<User> users;
-    public Role() {}
-    public Role(String name) {}
+    private List<User> users = new ArrayList<>();
 
-    public Role(String id, String name) {
-        this.id = id;
+    public Role() {}
+
+    public RoleName getName() {
+        return name;
+    }
+
+    public void setName(RoleName name) {
         this.name = name;
     }
 
@@ -28,14 +33,6 @@ public class Role extends Auditable {
 
     public void setId(String id) {
         this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
     }
 
     public List<User> getUsers() {

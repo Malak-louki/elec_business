@@ -1,6 +1,7 @@
 -- =============================================================
 --  V2__normalize_user_role_join_table.sql
---  (version VARCHAR(36))
+--  Objectif : aligner la table de jointure ManyToMany User<->Role
+--             sur les conventions du code (user_id / role_id)
 -- =============================================================
 
 SET @OLD_FOREIGN_KEY_CHECKS = @@FOREIGN_KEY_CHECKS;
@@ -19,9 +20,9 @@ CREATE TABLE user_role (
                                FOREIGN KEY (role_id) REFERENCES role(id)
                                    ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB
-  DEFAULT CHARSET = utf8mb4
-  COLLATE = utf8mb4_unicode_ci;
+  DEFAULT CHARSET = utf8mb4;  -- pas de COLLATE explicite
 
+CREATE INDEX idx_user_role_user ON user_role(user_id);
 CREATE INDEX idx_user_role_role ON user_role(role_id);
 
 SET FOREIGN_KEY_CHECKS = @OLD_FOREIGN_KEY_CHECKS;

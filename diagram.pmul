@@ -1,0 +1,154 @@
+@startuml
+' ============================
+' ENUMS
+' ============================
+
+enum EvaluationTarget {
+  INDIVIDUAL
+  GROUP
+}
+
+enum GradingType {
+  QUANTITATIVE
+  QUALITATIVE
+  CORAN
+}
+
+enum EvaluationStatus {
+  A_VENIR
+  A_REMPLIR
+  TRANSMIS
+}
+
+enum EvaluationEntryType {
+  GENERAL
+  INDIVIDUAL
+  CORAN_REVISION
+}
+
+' ============================
+' CORE ENTITIES
+' ============================
+
+class EvaluationModality {
+  +id : int
+  +title : string
+  +description : string
+  +startDate : date
+  +endDate : date
+  +factor : decimal
+  +target : EvaluationTarget
+  --
+  ' maps: pathway_assess_pattern
+}
+
+class GradingScale {
+  +id : int
+  +type : GradingType
+  +label : string
+  +noteMin : decimal
+  +noteMax : decimal
+  --
+  ' maps: pathway_assess_granding
+}
+
+class EvaluationSheet {
+  +id : int
+  +date : date
+  +description : string
+  +status : EvaluationStatus
+  --
+  ' maps: assessment_header
+}
+
+class EvaluationEntry {
+  +id : int
+  +type : EvaluationEntryType
+  +noteOriginal : decimal
+  +noteFinal : decimal
+  +skillDescription : string
+  +pageFrom : int
+  +pageTo : int
+  +sourateFrom : string
+  +sourateTo : string
+  +absent : bool
+  +valid : bool
+  +noValidate : bool
+  +homework : string
+  --
+  ' maps: assessment, assessment_single_assessment, assessment_coran_revision
+}
+
+class Transcript {
+  +id : int
+  +annualAverage : decimal
+  +semesterAverage : decimal
+  +valid : bool
+  +nextStep : string
+  --
+  ' maps: assessment_transcript
+}
+
+class TranscriptLine {
+  +id : int
+  +average : decimal
+  +nbAbs : int
+  +nbJustifiedAbs : int
+  +valid : bool
+  --
+  ' maps: assessment_transcript_content
+}
+
+' ============================
+' CONTEXT ENTITIES
+' ============================
+
+class Student {
+  +id : int
+  +completeName : string
+}
+
+class Group {
+  +id : int
+  +name : string
+}
+
+class Teacher {
+  +id : int
+  +completeName : string
+}
+
+class Year {
+  +id : int
+  +label : string
+}
+
+class Department {
+  +id : int
+  +label : string
+}
+
+' ============================
+' RELATIONS
+' ============================
+
+EvaluationModality "1" --> "1" Year
+EvaluationModality "0..*" --> "1" Department : belongsTo
+EvaluationModality "0..1" --> "1" GradingScale : defaultScale
+
+EvaluationSheet "1" --> "1" EvaluationModality
+EvaluationSheet "1" --> "1" GradingScale
+EvaluationSheet "1" --> "1" Group
+EvaluationSheet "1" --> "1" Teacher
+EvaluationSheet "1" --> "1" Year
+
+EvaluationEntry "0..*" --> "1" EvaluationSheet
+EvaluationEntry "0..*" --> "1" Student
+
+Transcript "0..*" --> "1" Student
+Transcript "0..*" --> "1" Year
+
+TranscriptLine "0..*" --> "1" Transcript
+TranscriptLine "0..*" --> "1" Group
+
+@enduml

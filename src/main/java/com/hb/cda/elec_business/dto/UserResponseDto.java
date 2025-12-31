@@ -16,6 +16,7 @@ public class UserResponseDto {
 
     private String id;           // UUID string
     private String username;
+    private String lastName;
     private String email;
     private String phone;
     private Set<String> roles;

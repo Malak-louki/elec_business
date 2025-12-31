@@ -17,7 +17,8 @@ public class Role extends Auditable {
     @ManyToMany(mappedBy = "roles")
     private List<User> users = new ArrayList<>();
 
-    public Role() {}
+    public Role() {
+    }
 
     public RoleName getName() {
         return name;

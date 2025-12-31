@@ -1,0 +1,234 @@
+package com.hb.cda.elec_business.service.impl;
+
+import com.hb.cda.elec_business.dto.AuthResponseDto;
+import com.hb.cda.elec_business.dto.RegisterRequestDto;
+import com.hb.cda.elec_business.dto.UserResponseDto;
+import com.hb.cda.elec_business.entity.Role;
+import com.hb.cda.elec_business.entity.RoleName;
+import com.hb.cda.elec_business.entity.User;
+import com.hb.cda.elec_business.entity.UserStatus;
+import com.hb.cda.elec_business.repository.RoleRepository;
+import com.hb.cda.elec_business.repository.UserRepository;
+import com.hb.cda.elec_business.security.JwtService;
+import com.hb.cda.elec_business.service.UserValidationService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class AuthServiceImplRegisterTest {
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private RoleRepository roleRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private JwtService jwtService;
+
+    @Mock
+    private AuthenticationManager authenticationManager;
+
+    @Mock
+    private UserValidationService validationService; // ✅ Ajout du mock
+
+    @InjectMocks
+    private AuthServiceImpl authServiceImpl;
+
+    private RegisterRequestDto validRequest;
+    private Role userRole;
+    private String testUuid;
+
+    @BeforeEach
+    void setUp() {
+        validRequest = new RegisterRequestDto();
+        validRequest.setEmail("test@example.com");
+        validRequest.setPhone("0600000000");
+        validRequest.setPassword("test123456");
+        validRequest.setUsername("test");
+        validRequest.setLastName("TestLastName");
+
+        userRole = new Role();
+        userRole.setName(RoleName.USER);
+
+        testUuid = UUID.randomUUID().toString();
+    }
+
+    @Test
+    void register_shouldCreateUserWithPendingStatusAndSendEmail_whenDataIsValid() {
+        // GIVEN
+        when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(false);
+        when(userRepository.existsByPhone(validRequest.getPhone())).thenReturn(false);
+        when(roleRepository.findByName(RoleName.USER)).thenReturn(Optional.of(userRole));
+        when(passwordEncoder.encode(validRequest.getPassword())).thenReturn("hashedPassword");
+
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setId(testUuid);
+            return u;
+        });
+
+        when(jwtService.generateAccessToken(any(User.class))).thenReturn("jwt-token-123");
+
+        // WHEN
+        AuthResponseDto response = authServiceImpl.register(validRequest);
+
+        // THEN
+        assertNotNull(response, "La réponse ne doit pas être null");
+        assertEquals("jwt-token-123", response.getAccessToken());
+        assertEquals("Bearer", response.getTokenType());
+
+        UserResponseDto userDto = response.getUser();
+        assertNotNull(userDto);
+        assertEquals(testUuid, userDto.getId());
+        assertEquals(validRequest.getEmail(), userDto.getEmail());
+
+        // ✅ Vérification de la création de l'utilisateur avec statut PENDING
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        User capturedUser = userCaptor.getValue();
+
+        assertEquals(UserStatus.PENDING, capturedUser.getUserStatus(),
+                "Le statut doit être PENDING après l'inscription");
+        assertEquals("hashedPassword", capturedUser.getPassword());
+
+        // ✅ Vérification que le service de validation a été appelé
+        verify(validationService).createAndSendValidation(capturedUser);
+    }
+
+    @Test
+    void register_shouldThrowException_whenEmailAlreadyExists() {
+        // GIVEN
+        when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(true);
+
+        // WHEN & THEN
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> authServiceImpl.register(validRequest)
+        );
+
+        assertEquals("Email already exists", exception.getMessage());
+        verify(userRepository, never()).save(any());
+        verify(jwtService, never()).generateAccessToken(any());
+        verify(validationService, never()).createAndSendValidation(any()); // ✅ Ajout
+    }
+
+    @Test
+    void register_shouldThrowException_whenPhoneAlreadyExists() {
+        // GIVEN
+        when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(false);
+        when(userRepository.existsByPhone(validRequest.getPhone())).thenReturn(true);
+
+        // WHEN & THEN
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> authServiceImpl.register(validRequest)
+        );
+
+        assertEquals("Phone number already exists", exception.getMessage());
+        verify(userRepository, never()).save(any());
+        verify(validationService, never()).createAndSendValidation(any()); // ✅ Ajout
+    }
+
+    @Test
+    void register_shouldThrowException_whenUserRoleNotFound() {
+        // GIVEN
+        when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(false);
+        when(userRepository.existsByPhone(validRequest.getPhone())).thenReturn(false);
+        when(roleRepository.findByName(RoleName.USER)).thenReturn(Optional.empty());
+
+        // WHEN & THEN
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> authServiceImpl.register(validRequest)
+        );
+
+        assertEquals("Default role USER not found", exception.getMessage());
+        verify(userRepository, never()).save(any());
+        verify(validationService, never()).createAndSendValidation(any()); // ✅ Ajout
+    }
+
+    @Test
+    void register_shouldHandleNullPhone_whenPhoneIsNotProvided() {
+        // GIVEN
+        validRequest.setPhone(null);
+
+        when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(false);
+        when(roleRepository.findByName(RoleName.USER)).thenReturn(Optional.of(userRole));
+        when(passwordEncoder.encode(validRequest.getPassword())).thenReturn("hashedPassword");
+
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setId(testUuid);
+            return u;
+        });
+
+        when(jwtService.generateAccessToken(any(User.class))).thenReturn("jwt-token-123");
+
+        // WHEN
+        AuthResponseDto response = authServiceImpl.register(validRequest);
+
+        // THEN
+        assertNotNull(response);
+        assertNull(response.getUser().getPhone());
+
+        verify(userRepository, never()).existsByPhone(any());
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        assertNull(userCaptor.getValue().getPhone());
+
+        // ✅ Vérification de l'envoi d'email même sans téléphone
+        verify(validationService).createAndSendValidation(any(User.class));
+    }
+
+    @Test
+    void register_shouldCreateUserWithCorrectAttributes() {
+        // GIVEN
+        when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(false);
+        when(userRepository.existsByPhone(validRequest.getPhone())).thenReturn(false);
+        when(roleRepository.findByName(RoleName.USER)).thenReturn(Optional.of(userRole));
+        when(passwordEncoder.encode(validRequest.getPassword())).thenReturn("hashedPassword");
+
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setId(testUuid);
+            return u;
+        });
+
+        when(jwtService.generateAccessToken(any(User.class))).thenReturn("jwt-token-123");
+
+        // WHEN
+        authServiceImpl.register(validRequest);
+
+        // THEN
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        User capturedUser = userCaptor.getValue();
+
+        assertEquals(validRequest.getEmail(), capturedUser.getEmail());
+        assertEquals(validRequest.getPhone(), capturedUser.getPhone());
+        assertEquals(validRequest.getUsername(), capturedUser.getFirstName());
+        assertEquals(validRequest.getLastName(), capturedUser.getLastName());
+        assertEquals(UserStatus.PENDING, capturedUser.getUserStatus());
+        assertTrue(capturedUser.getRoles().contains(userRole));
+    }
+}

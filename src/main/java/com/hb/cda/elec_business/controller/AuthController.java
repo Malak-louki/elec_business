@@ -3,15 +3,16 @@ package com.hb.cda.elec_business.controller;
 import com.hb.cda.elec_business.dto.AuthResponseDto;
 import com.hb.cda.elec_business.dto.LoginRequestDto;
 import com.hb.cda.elec_business.dto.RegisterRequestDto;
+import com.hb.cda.elec_business.dto.UserResponseDto;
+import com.hb.cda.elec_business.entity.User;
+import com.hb.cda.elec_business.mapper.UserMapper;
 import com.hb.cda.elec_business.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -31,4 +32,16 @@ public class AuthController {
         AuthResponseDto responseDto = authService.login(requestDto);
         return ResponseEntity.ok(responseDto);
     }
+
+    /**
+     * Retourne les infos de l'utilisateur actuellement authentifié (à partir du JWT).
+     */
+    @GetMapping("/me")
+    public ResponseEntity<UserResponseDto> me(Authentication authentication) {
+        // Principal posé par JwtAuthenticationFilter
+        User user = (User) authentication.getPrincipal();
+        UserResponseDto dto = UserMapper.toDto(user);
+        return ResponseEntity.ok(dto);
+    }
+
 }

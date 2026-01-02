@@ -1,9 +1,9 @@
 package com.hb.cda.elec_business.service.impl;
 
-import com.hb.cda.elec_business.dto.AuthResponseDto;
-import com.hb.cda.elec_business.dto.LoginRequestDto;
-import com.hb.cda.elec_business.dto.RegisterRequestDto;
-import com.hb.cda.elec_business.dto.UserResponseDto;
+import com.hb.cda.elec_business.dto.auth.AuthResponseDto;
+import com.hb.cda.elec_business.dto.auth.LoginRequestDto;
+import com.hb.cda.elec_business.dto.auth.RegisterRequestDto;
+import com.hb.cda.elec_business.dto.auth.UserResponseDto;
 import com.hb.cda.elec_business.entity.Role;
 import com.hb.cda.elec_business.entity.RoleName;
 import com.hb.cda.elec_business.entity.User;
@@ -13,7 +13,6 @@ import com.hb.cda.elec_business.repository.RoleRepository;
 import com.hb.cda.elec_business.repository.UserRepository;
 import com.hb.cda.elec_business.security.JwtService;
 import com.hb.cda.elec_business.service.AuthService;
-import com.hb.cda.elec_business.service.UserValidationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.DisabledException;
@@ -24,6 +23,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -34,7 +35,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
-    private final UserValidationService validationService;
+    private final UserValidationServiceImpl validationService;
 
     @Override
     @Transactional
@@ -59,7 +60,9 @@ public class AuthServiceImpl implements AuthService {
         user.setUserStatus(UserStatus.PENDING);
         user.setFirstName(request.getUsername());
         user.setLastName(request.getLastName());
-        user.setRoles(Collections.singleton(userRole));
+        Set<Role> roles = new HashSet<>();
+        roles.add(userRole);
+        user.setRoles(roles);
 
         // 4. Persistance
         User savedUser = userRepository.save(user);

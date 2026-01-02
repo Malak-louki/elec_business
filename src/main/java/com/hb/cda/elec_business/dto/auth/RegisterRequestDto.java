@@ -1,4 +1,4 @@
-package com.hb.cda.elec_business.dto;
+package com.hb.cda.elec_business.dto.auth;
 
 
 import jakarta.validation.constraints.Email;

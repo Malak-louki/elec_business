@@ -15,6 +15,7 @@ public class Availability extends Auditable{
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
+    @Column(name = "availability_day")
     private LocalDate day;
     private LocalTime startTime;
     private LocalTime endTime;

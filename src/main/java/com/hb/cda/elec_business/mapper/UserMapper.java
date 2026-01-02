@@ -1,6 +1,6 @@
 package com.hb.cda.elec_business.mapper;
 
-import com.hb.cda.elec_business.dto.UserResponseDto;
+import com.hb.cda.elec_business.dto.auth.UserResponseDto;
 import com.hb.cda.elec_business.entity.User;
 
 import java.util.stream.Collectors;

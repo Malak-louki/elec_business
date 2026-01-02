@@ -1,8 +1,8 @@
 package com.hb.cda.elec_business.service.impl;
 
-import com.hb.cda.elec_business.dto.AuthResponseDto;
-import com.hb.cda.elec_business.dto.LoginRequestDto;
-import com.hb.cda.elec_business.dto.UserResponseDto;
+import com.hb.cda.elec_business.dto.auth.AuthResponseDto;
+import com.hb.cda.elec_business.dto.auth.LoginRequestDto;
+import com.hb.cda.elec_business.dto.auth.UserResponseDto;
 import com.hb.cda.elec_business.entity.Role;
 import com.hb.cda.elec_business.entity.RoleName;
 import com.hb.cda.elec_business.entity.User;
@@ -10,7 +10,6 @@ import com.hb.cda.elec_business.entity.UserStatus;
 import com.hb.cda.elec_business.repository.RoleRepository;
 import com.hb.cda.elec_business.repository.UserRepository;
 import com.hb.cda.elec_business.security.JwtService;
-import com.hb.cda.elec_business.service.UserValidationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,7 +53,7 @@ class AuthServiceImplLoginTest {
     private Authentication authentication;
 
     @Mock
-    private UserValidationService validationService;
+    private UserValidationServiceImpl validationService;
 
     @InjectMocks
     private AuthServiceImpl authServiceImpl;

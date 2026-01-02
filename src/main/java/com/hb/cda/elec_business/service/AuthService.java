@@ -1,8 +1,8 @@
 package com.hb.cda.elec_business.service;
 
-import com.hb.cda.elec_business.dto.AuthResponseDto;
-import com.hb.cda.elec_business.dto.LoginRequestDto;
-import com.hb.cda.elec_business.dto.RegisterRequestDto;
+import com.hb.cda.elec_business.dto.auth.AuthResponseDto;
+import com.hb.cda.elec_business.dto.auth.LoginRequestDto;
+import com.hb.cda.elec_business.dto.auth.RegisterRequestDto;
 
 public interface AuthService {
     /**

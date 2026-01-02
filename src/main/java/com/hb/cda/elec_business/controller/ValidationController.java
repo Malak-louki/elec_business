@@ -1,6 +1,6 @@
 package com.hb.cda.elec_business.controller;
 
-import com.hb.cda.elec_business.service.UserValidationService;
+import com.hb.cda.elec_business.service.impl.UserValidationServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +12,7 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class ValidationController {
-    private final UserValidationService validationService;
+    private final UserValidationServiceImpl validationService;
 
     /**
      * Endpoint pour valider un compte utilisateur

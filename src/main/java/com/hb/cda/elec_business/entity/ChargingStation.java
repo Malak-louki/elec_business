@@ -1,6 +1,8 @@
 package com.hb.cda.elec_business.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -14,13 +16,31 @@ public class ChargingStation extends Auditable{
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
+
     private String name;
+
     @Column(precision = 5, scale = 2)
     private BigDecimal hourlyPrice;
-    // Format attendu : "7.4 kW", "22 kW" (nombre 1–3 chiffres, option décimale 1–2, suffixe kW)
+
+    /**
+     * Puissance de charge numérique en kW (pour les calculs et recherches)
+     * Exemples : 7.4, 22, 150
+     */
+    @Column(name = "charging_power_kw", precision = 6, scale = 2, nullable = false)
+    @DecimalMin(value = "0.1", message = "Charging power must be at least 0.1 kW")
+    @DecimalMax(value = "350.0", message = "Charging power must be less than 350 kW")
+    private BigDecimal chargingPowerKw;
+
+    /**
+     * Puissance de charge avec unité (pour l'affichage)
+     * Exemples : "7.4 kW", "22 kW", "150 kW"
+     * Format validé par regex : "X.X kW" ou "XX kW"
+     */
     @Pattern(regexp = "^[0-9]{1,3}(\\.[0-9]{1,2})?\\s?kW$")
-    @Size(max = 10)
+    @Size(max = 15)
+    @Column(name = "charging_power", length = 15)
     private String chargingPower;
+
     private String instruction;
     private Boolean hasStand;
     private String media;
@@ -30,7 +50,6 @@ public class ChargingStation extends Auditable{
     @JoinColumn(name = "user_id")
     private User user;
 
-    // ManyToMany: pas de cascade par défaut (évite de supprimer des dispos partagées)
     @ManyToMany
     @JoinTable(
             name = "charging_station_availability",
@@ -47,9 +66,10 @@ public class ChargingStation extends Auditable{
 
     }
 
-    public ChargingStation(String name, BigDecimal hourlyPrice, String chargingPower, String instruction, Boolean hasStand, String media, Boolean available) {
+    public ChargingStation(String name, BigDecimal hourlyPrice, BigDecimal chargingPowerKw, String chargingPower, String instruction, Boolean hasStand, String media, Boolean available) {
         this.name = name;
         this.hourlyPrice = hourlyPrice;
+        this.chargingPowerKw = chargingPowerKw;
         this.chargingPower = chargingPower;
         this.instruction = instruction;
         this.hasStand = hasStand;
@@ -57,10 +77,11 @@ public class ChargingStation extends Auditable{
         this.available = available;
     }
 
-    public ChargingStation(String id, String name, BigDecimal hourlyPrice, String chargingPower, String instruction, Boolean hasStand, String media, Boolean available) {
+    public ChargingStation(String id, String name, BigDecimal hourlyPrice, BigDecimal chargingPowerKw, String chargingPower, String instruction, Boolean hasStand, String media, Boolean available) {
         this.id = id;
         this.name = name;
         this.hourlyPrice = hourlyPrice;
+        this.chargingPowerKw = chargingPowerKw;
         this.chargingPower = chargingPower;
         this.instruction = instruction;
         this.hasStand = hasStand;
@@ -92,6 +113,14 @@ public class ChargingStation extends Auditable{
         this.hourlyPrice = hourlyPrice;
     }
 
+    public BigDecimal getChargingPowerKw() {
+        return chargingPowerKw;
+    }
+
+    public void setChargingPowerKw(BigDecimal chargingPowerKw) {
+        this.chargingPowerKw = chargingPowerKw;
+    }
+
     public String getChargingPower() {
         return chargingPower;
     }
@@ -115,7 +144,6 @@ public class ChargingStation extends Auditable{
     public void setMedia(String media) {
         this.media = media;
     }
-
 
     public Boolean getHasStand() {
         return hasStand;

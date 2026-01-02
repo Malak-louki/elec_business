@@ -5,6 +5,8 @@ import com.hb.cda.elec_business.entity.UserStatus;
 import com.hb.cda.elec_business.entity.UserValidation;
 import com.hb.cda.elec_business.repository.UserRepository;
 import com.hb.cda.elec_business.repository.UserValidationRepository;
+import com.hb.cda.elec_business.service.impl.EmailServiceImpl;
+import com.hb.cda.elec_business.service.impl.UserValidationServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,10 +35,10 @@ class UserValidationServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private EmailService emailService;
+    private EmailServiceImpl emailService;
 
     @InjectMocks
-    private UserValidationService validationService;
+    private UserValidationServiceImpl validationService;
 
     private User testUser;
 

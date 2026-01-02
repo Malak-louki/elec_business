@@ -1,9 +1,9 @@
 package com.hb.cda.elec_business.controller;
 
-import com.hb.cda.elec_business.dto.AuthResponseDto;
-import com.hb.cda.elec_business.dto.LoginRequestDto;
-import com.hb.cda.elec_business.dto.RegisterRequestDto;
-import com.hb.cda.elec_business.dto.UserResponseDto;
+import com.hb.cda.elec_business.dto.auth.AuthResponseDto;
+import com.hb.cda.elec_business.dto.auth.LoginRequestDto;
+import com.hb.cda.elec_business.dto.auth.RegisterRequestDto;
+import com.hb.cda.elec_business.dto.auth.UserResponseDto;
 import com.hb.cda.elec_business.entity.User;
 import com.hb.cda.elec_business.mapper.UserMapper;
 import com.hb.cda.elec_business.service.AuthService;

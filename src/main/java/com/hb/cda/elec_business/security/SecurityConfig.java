@@ -39,8 +39,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/error").permitAll()
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-//                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll().requestMatchers(HttpMethod.GET, "/api/bookings/check-availability").permitAll()
+//                       .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                         .requestMatchers(HttpMethod.GET, "/api/bookings/check-availability").permitAll()
                         // tout le reste nécessite un JWT valide
                         .anyRequest().authenticated()
                 )

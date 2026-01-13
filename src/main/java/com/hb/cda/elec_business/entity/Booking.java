@@ -1,65 +1,100 @@
 package com.hb.cda.elec_business.entity;
 
 import jakarta.persistence.*;
-
-
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalTime;
-
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
-public class Booking extends Auditable{
+@Table(name = "booking")
+public class Booking extends Auditable {
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
-    private LocalDate startDate;
-    private LocalDate endDate;
-    private LocalTime startHour;
-    private LocalTime endHour;
-    @Column(precision = 5, scale = 2, nullable = false)
-    private BigDecimal paidAmount;
+
+    /**
+     * Date et heure de début de la réservation
+     * Timezone : Europe/Paris (configuré dans application.properties)
+     */
+    @Column(name = "start_date_time", nullable = false)
+    private LocalDateTime startDateTime;
+
+    /**
+     * Date et heure de fin de la réservation
+     * Doit être après startDateTime (vérifié en BDD + code)
+     */
+    @Column(name = "end_date_time", nullable = false)
+    private LocalDateTime endDateTime;
+
+    /**
+     * Montant total calculé et dû pour cette réservation
+     * Calculé automatiquement : prix_horaire × durée_arrondie
+     *
+     * NOTE : Ce montant est calculé à la création, AVANT le paiement.
+     * Il représente ce que l'utilisateur DOIT payer, pas ce qu'il A payé.
+     */
+    @Column(name = "total_amount", precision = 7, scale = 2, nullable = false)
+    private BigDecimal totalAmount;
+
+    /**
+     * Statut actuel de la réservation
+     * Cycle : PENDING → CONFIRMED → COMPLETED
+     * Alternatives : CANCELLED, EXPIRED
+     */
     @Enumerated(EnumType.STRING)
+    @Column(name = "booking_status", nullable = false, length = 20)
     private BookingStatus bookingStatus;
+
+    /**
+     * Chemin vers la facture PDF générée
+     */
+    @Column(name = "invoice_path", length = 512)
     private String invoicePath;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    /**
+     * Date limite pour effectuer le paiement
+     * Calculé à la création : now + timeout (15 min par défaut)
+     * Si dépassé → statut passe à EXPIRED automatiquement
+     */
+    @Column(name = "expires_at")
+    private Instant expiresAt;
+
+    /**
+     * Utilisateur qui a effectué la réservation
+     */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    /**
+     * Paiement associé (null tant que statut = PENDING ou EXPIRED)
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payment_id")
     private Payment payment;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "charging_station_id")
+    /**
+     * Borne de recharge réservée
+     */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "charging_station_id", nullable = false)
     private ChargingStation chargingStation;
 
+    // Constructeurs
     public Booking() {
     }
 
-    public Booking(LocalDate startDate, LocalDate endDate, LocalTime startHour, LocalTime endHour, BigDecimal paidAmount, BookingStatus bookingStatus, String invoicePath) {
-        this.startDate = startDate;
-        this.endDate = endDate;
-        this.startHour = startHour;
-        this.endHour = endHour;
-        this.paidAmount = paidAmount;
+    public Booking(LocalDateTime startDateTime, LocalDateTime endDateTime,
+                   BigDecimal totalAmount, BookingStatus bookingStatus) {
+        this.startDateTime = startDateTime;
+        this.endDateTime = endDateTime;
+        this.totalAmount = totalAmount;
         this.bookingStatus = bookingStatus;
-        this.invoicePath = invoicePath;
     }
 
-    public Booking(String id, LocalDate startDate, LocalDate endDate, LocalTime startHour, LocalTime endHour, BigDecimal paidAmount, BookingStatus bookingStatus, String invoicePath) {
-        this.id = id;
-        this.startDate = startDate;
-        this.endDate = endDate;
-        this.startHour = startHour;
-        this.endHour = endHour;
-        this.paidAmount = paidAmount;
-        this.bookingStatus = bookingStatus;
-        this.invoicePath = invoicePath;
-    }
-
+    // Getters et Setters
     public String getId() {
         return id;
     }
@@ -68,44 +103,28 @@ public class Booking extends Auditable{
         this.id = id;
     }
 
-    public LocalDate getStartDate() {
-        return startDate;
+    public LocalDateTime getStartDateTime() {
+        return startDateTime;
     }
 
-    public void setStartDate(LocalDate startDate) {
-        this.startDate = startDate;
+    public void setStartDateTime(LocalDateTime startDateTime) {
+        this.startDateTime = startDateTime;
     }
 
-    public LocalDate getEndDate() {
-        return endDate;
+    public LocalDateTime getEndDateTime() {
+        return endDateTime;
     }
 
-    public void setEndDate(LocalDate endDate) {
-        this.endDate = endDate;
+    public void setEndDateTime(LocalDateTime endDateTime) {
+        this.endDateTime = endDateTime;
     }
 
-    public LocalTime getStartHour() {
-        return startHour;
+    public BigDecimal getTotalAmount() {
+        return totalAmount;
     }
 
-    public void setStartHour(LocalTime startHour) {
-        this.startHour = startHour;
-    }
-
-    public LocalTime getEndHour() {
-        return endHour;
-    }
-
-    public void setEndHour(LocalTime endHour) {
-        this.endHour = endHour;
-    }
-
-    public BigDecimal getPaidAmount() {
-        return paidAmount;
-    }
-
-    public void setPaidAmount(BigDecimal paidAmount) {
-        this.paidAmount = paidAmount;
+    public void setTotalAmount(BigDecimal totalAmount) {
+        this.totalAmount = totalAmount;
     }
 
     public BookingStatus getBookingStatus() {
@@ -122,6 +141,14 @@ public class Booking extends Auditable{
 
     public void setInvoicePath(String invoicePath) {
         this.invoicePath = invoicePath;
+    }
+
+    public Instant getExpiresAt() {
+        return expiresAt;
+    }
+
+    public void setExpiresAt(Instant expiresAt) {
+        this.expiresAt = expiresAt;
     }
 
     public User getUser() {
@@ -150,6 +177,7 @@ public class Booking extends Auditable{
 
     @Override
     public boolean equals(Object o) {
+        if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Booking booking = (Booking) o;
         return Objects.equals(id, booking.id);

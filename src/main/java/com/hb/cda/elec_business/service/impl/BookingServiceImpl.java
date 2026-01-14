@@ -3,6 +3,8 @@ package com.hb.cda.elec_business.service.impl;
 import com.hb.cda.elec_business.dto.booking.BookingRequestDto;
 import com.hb.cda.elec_business.dto.booking.BookingResponseDto;
 import com.hb.cda.elec_business.entity.*;
+import com.hb.cda.elec_business.exception.BookingConflictException;
+import com.hb.cda.elec_business.exception.BookingValidationException;
 import com.hb.cda.elec_business.mapper.BookingMapper;
 import com.hb.cda.elec_business.repository.BookingRepository;
 import com.hb.cda.elec_business.repository.ChargingStationRepository;
@@ -15,9 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 
 @Service
@@ -27,6 +29,9 @@ public class BookingServiceImpl implements BookingService {
 
     private final BookingRepository bookingRepository;
     private final ChargingStationRepository stationRepository;
+
+    // Timeout pour le paiement (15 minutes par défaut)
+    private static final int PAYMENT_TIMEOUT_MINUTES = 15;
 
     // ====================================================================
     // GESTION DES RÉSERVATIONS (CLIENTS)
@@ -39,51 +44,49 @@ public class BookingServiceImpl implements BookingService {
 
         // 1. Récupérer la borne
         ChargingStation station = stationRepository.findByIdWithRelations(request.getChargingStationId())
-                .orElseThrow(() -> new IllegalArgumentException("Borne de recharge introuvable avec l'ID: " + request.getChargingStationId()));
+                .orElseThrow(() -> new BookingValidationException("Borne de recharge introuvable avec l'ID: " + request.getChargingStationId()));
 
         // 2. Vérifier que la borne est disponible
-        if (!station.getAvailable()) {
-            throw new IllegalStateException("Cette borne n'est pas disponible pour le moment");
+        if (!station.isAvailable()) {
+            throw new BookingValidationException("Cette borne n'est pas disponible pour le moment");
         }
 
         // 3. Valider les dates et heures
-        validateBookingDates(request.getStartDate(), request.getEndDate(), request.getStartHour(), request.getEndHour());
+        validateBookingDateTime(request.getStartDateTime(), request.getEndDateTime());
 
         // 4. Vérifier qu'il n'y a pas de conflit de réservation
         boolean hasConflict = bookingRepository.existsConflictingBooking(
-                station.getId(),
-                request.getStartDate(),
-                request.getStartHour(),
-                request.getEndDate(),
-                request.getEndHour()
+                station,
+                request.getStartDateTime(),
+                request.getEndDateTime()
         );
 
         if (hasConflict) {
-            throw new IllegalStateException("Ce créneau horaire n'est pas disponible pour cette borne");
+            throw new BookingConflictException("Ce créneau horaire n'est pas disponible pour cette borne");
         }
 
         // 5. Calculer le montant à payer
-        BigDecimal amount = calculateBookingAmount(
+        BigDecimal totalAmount = calculateBookingAmount(
                 station.getHourlyPrice(),
-                request.getStartDate(),
-                request.getStartHour(),
-                request.getEndDate(),
-                request.getEndHour()
+                request.getStartDateTime(),
+                request.getEndDateTime()
         );
 
-        // 6. Créer la réservation
+        // 6. Calculer la date d'expiration (maintenant + 15 minutes)
+        Instant expiresAt = Instant.now().plus(Duration.ofMinutes(PAYMENT_TIMEOUT_MINUTES));
+
+        // 7. Créer la réservation
         Booking booking = new Booking();
-        booking.setStartDate(request.getStartDate());
-        booking.setEndDate(request.getEndDate());
-        booking.setStartHour(request.getStartHour());
-        booking.setEndHour(request.getEndHour());
-        booking.setPaidAmount(amount);
+        booking.setStartDateTime(request.getStartDateTime());
+        booking.setEndDateTime(request.getEndDateTime());
+        booking.setTotalAmount(totalAmount);
         booking.setBookingStatus(BookingStatus.PENDING); // En attente de paiement
+        booking.setExpiresAt(expiresAt);
         booking.setUser(customer);
         booking.setChargingStation(station);
 
         booking = bookingRepository.save(booking);
-        log.info("Booking created successfully with ID: {}", booking.getId());
+        log.info("Booking created successfully with ID: {} (expires at: {})", booking.getId(), expiresAt);
 
         return BookingMapper.toResponseDto(booking);
     }
@@ -92,7 +95,7 @@ public class BookingServiceImpl implements BookingService {
     @Transactional(readOnly = true)
     public BookingResponseDto getBookingById(String bookingId, User user) {
         Booking booking = bookingRepository.findByIdWithRelations(bookingId)
-                .orElseThrow(() -> new IllegalArgumentException("Réservation introuvable avec l'ID: " + bookingId));
+                .orElseThrow(() -> new BookingValidationException("Réservation introuvable avec l'ID: " + bookingId));
 
         // Vérifier que l'utilisateur a le droit de voir cette réservation
         if (!isUserAuthorizedForBooking(booking, user)) {
@@ -106,7 +109,7 @@ public class BookingServiceImpl implements BookingService {
     @Transactional(readOnly = true)
     public List<BookingResponseDto> getMyBookings(User customer) {
         log.info("Fetching all bookings for user: {}", customer.getEmail());
-        List<Booking> bookings = bookingRepository.findByUserOrderByStartDateDesc(customer);
+        List<Booking> bookings = bookingRepository.findByUserWithRelations(customer);
         return BookingMapper.toResponseDtoList(bookings);
     }
 
@@ -114,7 +117,7 @@ public class BookingServiceImpl implements BookingService {
     @Transactional(readOnly = true)
     public List<BookingResponseDto> getMyBookingsByStatus(User customer, BookingStatus status) {
         log.info("Fetching bookings with status {} for user: {}", status, customer.getEmail());
-        List<Booking> bookings = bookingRepository.findByUserAndBookingStatusOrderByStartDateDesc(customer, status);
+        List<Booking> bookings = bookingRepository.findByUserAndBookingStatusOrderByStartDateTimeDesc(customer, status);
         return BookingMapper.toResponseDtoList(bookings);
     }
 
@@ -124,7 +127,7 @@ public class BookingServiceImpl implements BookingService {
         log.info("Cancelling booking {} by user {}", bookingId, user.getEmail());
 
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new IllegalArgumentException("Réservation introuvable"));
+                .orElseThrow(() -> new BookingValidationException("Réservation introuvable"));
 
         // Vérifier les autorisations
         if (!isUserAuthorizedForBooking(booking, user)) {
@@ -132,9 +135,8 @@ public class BookingServiceImpl implements BookingService {
         }
 
         // Vérifier qu'on peut encore annuler (pas déjà passée)
-        LocalDateTime bookingStart = LocalDateTime.of(booking.getStartDate(), booking.getStartHour());
-        if (bookingStart.isBefore(LocalDateTime.now())) {
-            throw new IllegalStateException("Impossible d'annuler une réservation passée");
+        if (booking.getStartDateTime().isBefore(LocalDateTime.now())) {
+            throw new BookingValidationException("Impossible d'annuler une réservation passée");
         }
 
         booking.setBookingStatus(BookingStatus.CANCELLED);
@@ -148,7 +150,7 @@ public class BookingServiceImpl implements BookingService {
         log.info("Updating booking {} status to {}", bookingId, newStatus);
 
         Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new IllegalArgumentException("Réservation introuvable"));
+                .orElseThrow(() -> new BookingValidationException("Réservation introuvable"));
 
         booking.setBookingStatus(newStatus);
         booking = bookingRepository.save(booking);
@@ -162,25 +164,28 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     @Transactional(readOnly = true)
-    public boolean isSlotAvailable(String stationId, LocalDate startDate, LocalDate endDate,
-                                   String startHourStr, String endHourStr) {
-        LocalTime startHour = LocalTime.parse(startHourStr);
-        LocalTime endHour = LocalTime.parse(endHourStr);
+    public boolean isSlotAvailable(String stationId, LocalDateTime startDateTime, LocalDateTime endDateTime) {
+        ChargingStation station = stationRepository.findById(stationId)
+                .orElseThrow(() -> new BookingValidationException("Borne introuvable"));
 
-        return !bookingRepository.existsConflictingBooking(stationId, startDate, startHour, endDate, endHour);
+        return !bookingRepository.existsConflictingBooking(station, startDateTime, endDateTime);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<BookingResponseDto> getBookedSlotsForStation(String stationId, LocalDate startDate, LocalDate endDate) {
-        LocalTime midnight = LocalTime.of(0, 0);
-        LocalTime endOfDay = LocalTime.of(23, 59);
+    public List<BookingResponseDto> getBookedSlotsForStation(String stationId, LocalDateTime startDateTime, LocalDateTime endDateTime) {
+        ChargingStation station = stationRepository.findById(stationId)
+                .orElseThrow(() -> new BookingValidationException("Borne introuvable"));
 
-        List<Booking> bookings = bookingRepository.findConflictingBookings(
-                stationId, startDate, midnight, endDate, endOfDay
-        );
+        List<Booking> bookings = bookingRepository.findByChargingStationWithRelations(station);
 
-        return BookingMapper.toResponseDtoList(bookings);
+        // Filtrer les bookings dans la période demandée
+        List<Booking> filteredBookings = bookings.stream()
+                .filter(b -> !b.getEndDateTime().isBefore(startDateTime) && !b.getStartDateTime().isAfter(endDateTime))
+                .filter(b -> b.getBookingStatus() == BookingStatus.PENDING || b.getBookingStatus() == BookingStatus.CONFIRMED)
+                .toList();
+
+        return BookingMapper.toResponseDtoList(filteredBookings);
     }
 
     // ====================================================================
@@ -203,7 +208,9 @@ public class BookingServiceImpl implements BookingService {
         // Vérifier que l'utilisateur est bien propriétaire de cette borne
         verifyStationOwnership(stationId, owner);
 
-        List<Booking> bookings = bookingRepository.findByChargingStationIdOrderByStartDateDesc(stationId);
+        ChargingStation station = stationRepository.findById(stationId).orElseThrow();
+        List<Booking> bookings = bookingRepository.findByChargingStationWithRelations(station);
+
         return BookingMapper.toResponseDtoList(bookings);
     }
 
@@ -222,8 +229,8 @@ public class BookingServiceImpl implements BookingService {
     @Transactional(readOnly = true)
     public List<BookingResponseDto> getUpcomingBookingsForOwner(User owner) {
         log.info("Fetching upcoming bookings for owner: {}", owner.getEmail());
-        LocalDate today = LocalDate.now();
-        List<Booking> bookings = bookingRepository.findUpcomingBookingsByOwner(owner, today);
+        LocalDateTime now = LocalDateTime.now();
+        List<Booking> bookings = bookingRepository.findUpcomingBookingsByUser(owner, now);
         return BookingMapper.toResponseDtoList(bookings);
     }
 
@@ -231,8 +238,8 @@ public class BookingServiceImpl implements BookingService {
     @Transactional(readOnly = true)
     public List<BookingResponseDto> getPastBookingsForOwner(User owner) {
         log.info("Fetching past bookings for owner: {}", owner.getEmail());
-        LocalDate today = LocalDate.now();
-        List<Booking> bookings = bookingRepository.findPastBookingsByOwner(owner, today);
+        LocalDateTime now = LocalDateTime.now();
+        List<Booking> bookings = bookingRepository.findPastBookingsByUser(owner, now);
         return BookingMapper.toResponseDtoList(bookings);
     }
 
@@ -261,7 +268,11 @@ public class BookingServiceImpl implements BookingService {
     @Transactional(readOnly = true)
     public BigDecimal calculateRevenueBetweenDates(User owner, LocalDate startDate, LocalDate endDate) {
         log.info("Calculating revenue between {} and {} for owner {}", startDate, endDate, owner.getEmail());
-        return bookingRepository.calculateRevenueBetweenDates(owner, startDate, endDate);
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
+
+        return bookingRepository.calculateRevenueBetweenDates(owner, startDateTime, endDateTime);
     }
 
     @Override
@@ -288,6 +299,37 @@ public class BookingServiceImpl implements BookingService {
         return bookingRepository.countUniqueCustomers(owner);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Double calculateOccupancyRate(String stationId, LocalDate startDate, LocalDate endDate) {
+        log.info("Calculating occupancy rate for station {} between {} and {}", stationId, startDate, endDate);
+
+        // Calculer le nombre total d'heures dans la période
+        long totalHours = Duration.between(
+                startDate.atStartOfDay(),
+                endDate.plusDays(1).atStartOfDay()
+        ).toHours();
+
+        // Récupérer toutes les réservations confirmées dans cette période
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
+
+        List<Booking> bookings = bookingRepository.findConfirmedBookingsByStation(stationId);
+
+        // Calculer le nombre d'heures réservées
+        long bookedHours = bookings.stream()
+                .filter(b -> !b.getEndDateTime().isBefore(startDateTime) && !b.getStartDateTime().isAfter(endDateTime))
+                .mapToLong(b -> Duration.between(b.getStartDateTime(), b.getEndDateTime()).toHours())
+                .sum();
+
+        // Calculer le taux d'occupation
+        if (totalHours == 0) {
+            return 0.0;
+        }
+
+        return (bookedHours * 100.0) / totalHours;
+    }
+
     // ====================================================================
     // MÉTHODES PRIVÉES UTILITAIRES
     // ====================================================================
@@ -295,23 +337,25 @@ public class BookingServiceImpl implements BookingService {
     /**
      * Valide que les dates et heures de réservation sont cohérentes
      */
-    private void validateBookingDates(LocalDate startDate, LocalDate endDate,
-                                      LocalTime startHour, LocalTime endHour) {
-        LocalDateTime start = LocalDateTime.of(startDate, startHour);
-        LocalDateTime end = LocalDateTime.of(endDate, endHour);
-
-        if (start.isBefore(LocalDateTime.now())) {
-            throw new IllegalArgumentException("La date de début ne peut pas être dans le passé");
+    private void validateBookingDateTime(LocalDateTime startDateTime, LocalDateTime endDateTime) {
+        if (startDateTime.isBefore(LocalDateTime.now())) {
+            throw new BookingValidationException("La date de début ne peut pas être dans le passé");
         }
 
-        if (end.isBefore(start) || end.isEqual(start)) {
-            throw new IllegalArgumentException("La date/heure de fin doit être après la date/heure de début");
+        if (endDateTime.isBefore(startDateTime) || endDateTime.isEqual(startDateTime)) {
+            throw new BookingValidationException("La date/heure de fin doit être après la date/heure de début");
         }
 
         // Vérifier que la réservation ne dépasse pas 7 jours
-        long daysBetween = Duration.between(start, end).toDays();
+        long daysBetween = Duration.between(startDateTime, endDateTime).toDays();
         if (daysBetween > 7) {
-            throw new IllegalArgumentException("La durée maximale de réservation est de 7 jours");
+            throw new BookingValidationException("La durée maximale de réservation est de 7 jours");
+        }
+
+        // Vérifier une durée minimale de 1 heure
+        long hoursBetween = Duration.between(startDateTime, endDateTime).toHours();
+        if (hoursBetween < 1) {
+            throw new BookingValidationException("La durée minimale de réservation est de 1 heure");
         }
     }
 
@@ -319,13 +363,10 @@ public class BookingServiceImpl implements BookingService {
      * Calcule le montant total de la réservation en fonction du tarif horaire
      */
     private BigDecimal calculateBookingAmount(BigDecimal hourlyPrice,
-                                              LocalDate startDate, LocalTime startHour,
-                                              LocalDate endDate, LocalTime endHour) {
-        LocalDateTime start = LocalDateTime.of(startDate, startHour);
-        LocalDateTime end = LocalDateTime.of(endDate, endHour);
-
+                                              LocalDateTime startDateTime,
+                                              LocalDateTime endDateTime) {
         // Calculer la durée en heures (arrondi au supérieur)
-        long minutes = Duration.between(start, end).toMinutes();
+        long minutes = Duration.between(startDateTime, endDateTime).toMinutes();
         double hours = Math.ceil(minutes / 60.0);
 
         BigDecimal totalAmount = hourlyPrice.multiply(BigDecimal.valueOf(hours));
@@ -359,7 +400,7 @@ public class BookingServiceImpl implements BookingService {
      */
     private void verifyStationOwnership(String stationId, User owner) {
         ChargingStation station = stationRepository.findById(stationId)
-                .orElseThrow(() -> new IllegalArgumentException("Borne introuvable"));
+                .orElseThrow(() -> new BookingValidationException("Borne introuvable"));
 
         if (!station.getUser().getId().equals(owner.getId())) {
             throw new AccessDeniedException("Vous n'êtes pas propriétaire de cette borne");

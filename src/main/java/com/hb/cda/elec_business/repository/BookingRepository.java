@@ -12,9 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -69,6 +67,9 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
     // REQUÊTES UTILISATEUR (CLIENT)
     // ====================================================================
 
+    /**
+     * Trouve les réservations d'un utilisateur par statut
+     */
     List<Booking> findByUserAndBookingStatusOrderByStartDateTimeDesc(User user, BookingStatus status);
 
     /**
@@ -118,51 +119,6 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
             @Param("station") ChargingStation station,
             @Param("startDateTime") LocalDateTime startDateTime,
             @Param("endDateTime") LocalDateTime endDateTime
-    );
-
-    /**
-     * Vérifie si un créneau est déjà réservé (version date + heure).
-     * (Overload volontaire : signature différente, donc pas un doublon Java)
-     */
-    @Query("""
-        SELECT COUNT(b) > 0 FROM Booking b
-        WHERE b.chargingStation.id = :stationId
-          AND b.bookingStatus IN ('PENDING', 'CONFIRMED')
-          AND NOT (
-             (b.endDate < :startDate) OR
-             (b.startDate > :endDate) OR
-             (b.startDate = :endDate AND b.startHour >= :endHour) OR
-             (b.endDate = :startDate AND b.endHour <= :startHour)
-          )
-    """)
-    boolean existsConflictingBooking(
-            @Param("stationId") String stationId,
-            @Param("startDate") LocalDate startDate,
-            @Param("startHour") LocalTime startHour,
-            @Param("endDate") LocalDate endDate,
-            @Param("endHour") LocalTime endHour
-    );
-
-    /**
-     * Trouve les réservations qui chevauchent une période donnée (version date + heure).
-     */
-    @Query("""
-        SELECT b FROM Booking b
-        WHERE b.chargingStation.id = :stationId
-          AND b.bookingStatus IN ('PENDING', 'CONFIRMED')
-          AND NOT (
-             (b.endDate < :startDate) OR
-             (b.startDate > :endDate) OR
-             (b.startDate = :endDate AND b.startHour >= :endHour) OR
-             (b.endDate = :startDate AND b.endHour <= :startHour)
-          )
-    """)
-    List<Booking> findConflictingBookings(
-            @Param("stationId") String stationId,
-            @Param("startDate") LocalDate startDate,
-            @Param("startHour") LocalTime startHour,
-            @Param("endDate") LocalDate endDate,
-            @Param("endHour") LocalTime endHour
     );
 
     // ====================================================================
@@ -228,23 +184,13 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
     List<Booking> findByChargingStationUserOrderByCreatedAtDesc(@Param("owner") User owner);
 
     /**
-     * Réservations d'une borne spécifique (tri legacy date+heure).
-     */
-    @Query("""
-        SELECT b FROM Booking b
-        WHERE b.chargingStation.id = :stationId
-        ORDER BY b.startDate DESC, b.startHour DESC
-    """)
-    List<Booking> findByChargingStationIdOrderByStartDateDesc(@Param("stationId") String stationId);
-
-    /**
      * Réservations confirmées d'une borne.
      */
     @Query("""
         SELECT b FROM Booking b
         WHERE b.chargingStation.id = :stationId
           AND b.bookingStatus = 'CONFIRMED'
-        ORDER BY b.startDate DESC
+        ORDER BY b.startDateTime DESC
     """)
     List<Booking> findConfirmedBookingsByStation(@Param("stationId") String stationId);
 
@@ -252,7 +198,7 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
      * Revenu total pour un propriétaire.
      */
     @Query("""
-        SELECT COALESCE(SUM(b.paidAmount), 0) FROM Booking b
+        SELECT COALESCE(SUM(b.totalAmount), 0) FROM Booking b
         WHERE b.chargingStation.user = :owner
           AND b.bookingStatus = 'CONFIRMED'
     """)
@@ -262,39 +208,49 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
      * Revenu total pour une borne.
      */
     @Query("""
-        SELECT COALESCE(SUM(b.paidAmount), 0) FROM Booking b
+        SELECT COALESCE(SUM(b.totalAmount), 0) FROM Booking b
         WHERE b.chargingStation.id = :stationId
           AND b.bookingStatus = 'CONFIRMED'
     """)
     BigDecimal calculateRevenueByStation(@Param("stationId") String stationId);
 
     /**
-     * Revenu sur une période (version startDate/endDate).
+     * Revenu sur une période (version LocalDateTime).
      */
     @Query("""
-        SELECT COALESCE(SUM(b.paidAmount), 0) FROM Booking b
+        SELECT COALESCE(SUM(b.totalAmount), 0) FROM Booking b
         WHERE b.chargingStation.user = :owner
           AND b.bookingStatus = 'CONFIRMED'
-          AND b.startDate BETWEEN :startDate AND :endDate
+          AND b.startDateTime >= :startDateTime
+          AND b.startDateTime < :endDateTime
     """)
     BigDecimal calculateRevenueBetweenDates(
             @Param("owner") User owner,
-            @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate
+            @Param("startDateTime") LocalDateTime startDateTime,
+            @Param("endDateTime") LocalDateTime endDateTime
     );
 
+    /**
+     * Compte le nombre total de réservations pour un propriétaire
+     */
     @Query("""
         SELECT COUNT(b) FROM Booking b
         WHERE b.chargingStation.user = :owner
     """)
     Long countBookingsByOwner(@Param("owner") User owner);
 
+    /**
+     * Compte le nombre de réservations par borne
+     */
     @Query("""
         SELECT COUNT(b) FROM Booking b
         WHERE b.chargingStation.id = :stationId
     """)
     Long countBookingsByStation(@Param("stationId") String stationId);
 
+    /**
+     * Compte les réservations confirmées par borne
+     */
     @Query("""
         SELECT COUNT(b) FROM Booking b
         WHERE b.chargingStation.id = :stationId
@@ -302,42 +258,21 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
     """)
     Long countConfirmedBookingsByStation(@Param("stationId") String stationId);
 
+    /**
+     * Compte le nombre de clients uniques pour un propriétaire
+     */
     @Query("""
-        SELECT b FROM Booking b
+        SELECT COUNT(DISTINCT b.user) FROM Booking b
         WHERE b.chargingStation.user = :owner
-          AND b.startDate >= :today
-          AND b.bookingStatus IN ('PENDING', 'CONFIRMED')
-        ORDER BY b.startDate ASC, b.startHour ASC
-    """)
-    List<Booking> findUpcomingBookingsByOwner(@Param("owner") User owner, @Param("today") LocalDate today);
-
-    @Query("""
-        SELECT b FROM Booking b
-        WHERE b.chargingStation.user = :owner
-          AND b.endDate < :today
-        ORDER BY b.endDate DESC
-    """)
-    List<Booking> findPastBookingsByOwner(@Param("owner") User owner, @Param("today") LocalDate today);
-
-    // ====================================================================
-    // STATS AVANCÉES
-    // ====================================================================
-
-    @Query("""
-        SELECT COALESCE(SUM(
-            TIMESTAMPDIFF(HOUR,
-               CONCAT(b.startDate, ' ', b.startHour),
-               CONCAT(b.endDate, ' ', b.endHour)
-            )
-        ), 0)
-        FROM Booking b
-        WHERE b.chargingStation.id = :stationId
           AND b.bookingStatus = 'CONFIRMED'
     """)
-    Long calculateTotalBookedHours(@Param("stationId") String stationId);
+    Long countUniqueCustomers(@Param("owner") User owner);
 
+    /**
+     * Trouve les bornes les plus rentables d'un propriétaire
+     */
     @Query("""
-        SELECT b.chargingStation, SUM(b.paidAmount) as revenue
+        SELECT b.chargingStation, SUM(b.totalAmount) as revenue
         FROM Booking b
         WHERE b.chargingStation.user = :owner
           AND b.bookingStatus = 'CONFIRMED'
@@ -345,11 +280,4 @@ public interface BookingRepository extends JpaRepository<Booking, String> {
         ORDER BY revenue DESC
     """)
     List<Object[]> findTopStationsByRevenue(@Param("owner") User owner);
-
-    @Query("""
-        SELECT COUNT(DISTINCT b.user) FROM Booking b
-        WHERE b.chargingStation.user = :owner
-          AND b.bookingStatus = 'CONFIRMED'
-    """)
-    Long countUniqueCustomers(@Param("owner") User owner);
 }

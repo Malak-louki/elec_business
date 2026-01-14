@@ -7,6 +7,7 @@ import com.hb.cda.elec_business.entity.User;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -61,10 +62,8 @@ public interface BookingService {
      */
     boolean isSlotAvailable(
             String stationId,
-            LocalDate startDate,
-            LocalDate endDate,
-            String startHour,
-            String endHour
+            LocalDateTime startDateTime,
+            LocalDateTime endDateTime
     );
 
     /**
@@ -72,8 +71,8 @@ public interface BookingService {
      */
     List<BookingResponseDto> getBookedSlotsForStation(
             String stationId,
-            LocalDate startDate,
-            LocalDate endDate
+            LocalDateTime startDateTime,
+            LocalDateTime endDateTime
     );
 
     // ====================================================================
@@ -143,4 +142,10 @@ public interface BookingService {
      * Compte le nombre de clients uniques ayant réservé chez un propriétaire
      */
     Long countUniqueCustomersForOwner(User owner);
+
+    /**
+     * Calcule le taux d'occupation d'une borne sur une période
+     * @return Pourcentage entre 0 et 100
+     */
+    Double calculateOccupancyRate(String stationId, LocalDate startDate, LocalDate endDate);
 }

@@ -5,134 +5,111 @@ import com.hb.cda.elec_business.entity.BookingStatus;
 import com.hb.cda.elec_business.repository.BookingRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 
 /**
- * Scheduler pour gérer automatiquement les réservations - VERSION CORRIGÉE
+ * Scheduler pour gérer automatiquement les états des réservations
  *
- * CORRECTION : Utilise la timezone centralisée
- *
- * 2 TÂCHES AUTOMATIQUES :
- * 1. Marquer EXPIRED les réservations PENDING non payées
- * 2. Marquer COMPLETED les réservations CONFIRMED terminées
- *
- * @author Votre Nom - CDA 2026
+ * Tâches planifiées :
+ * 1. Expirer les réservations PENDING non payées après 15 minutes
+ * 2. Marquer comme COMPLETED les réservations CONFIRMED terminées
  */
 @Component
 @RequiredArgsConstructor
 @Slf4j
-@ConditionalOnProperty(
-        value = "app.booking.scheduler.enabled",
-        havingValue = "true",
-        matchIfMissing = true
-)
 public class BookingScheduler {
 
     private final BookingRepository bookingRepository;
 
-    // CORRECTION : Timezone centralisée
-    @Value("${app.timezone:Europe/Paris}")
-    private String timezone;
-
     /**
-     * TÂCHE 1 : Marquer les réservations PENDING expirées
-     *
-     * Exécution : Toutes les 5 minutes
+     * Expire les réservations PENDING non payées après le délai d'expiration
+     * Exécuté toutes les 5 minutes
      */
-    @Scheduled(cron = "0 */5 * * * *")
+    @Scheduled(fixedRate = 300000) // 5 minutes = 300 000 ms
     @Transactional
     public void expirePendingBookings() {
-        log.debug("Début vérification réservations PENDING expirées");
+        log.debug("Running scheduled task: expirePendingBookings");
 
         try {
-            List<Booking> expiredBookings = bookingRepository.findExpiredPendingBookings(Instant.now());
+            Instant now = Instant.now();
+            List<Booking> expiredBookings = bookingRepository.findExpiredPendingBookings(now);
 
-            if (expiredBookings.isEmpty()) {
-                log.debug("Aucune réservation PENDING expirée trouvée");
-                return;
+            if (!expiredBookings.isEmpty()) {
+                log.info("Found {} expired PENDING bookings to process", expiredBookings.size());
+
+                for (Booking booking : expiredBookings) {
+                    booking.setBookingStatus(BookingStatus.EXPIRED);
+                    bookingRepository.save(booking);
+                    log.info("Booking {} expired (was pending since {})",
+                            booking.getId(),
+                            booking.getCreatedAt());
+                }
+
+                log.info("Successfully expired {} bookings", expiredBookings.size());
+            } else {
+                log.debug("No expired PENDING bookings found");
             }
-
-            log.info("Traitement de {} réservation(s) PENDING expirée(s)", expiredBookings.size());
-
-            for (Booking booking : expiredBookings) {
-                booking.setBookingStatus(BookingStatus.EXPIRED);
-                bookingRepository.save(booking);
-
-                log.info("Réservation {} marquée EXPIRED (délai de paiement dépassé)",
-                        booking.getId());
-            }
-
-            log.info("{} réservation(s) marquée(s) EXPIRED avec succès", expiredBookings.size());
 
         } catch (Exception e) {
-            log.error("Erreur lors du traitement des réservations expirées", e);
+            log.error("Error while expiring PENDING bookings", e);
+            // Ne pas propager l'exception pour ne pas bloquer les prochaines exécutions
         }
     }
 
     /**
-     * TÂCHE 2 : Marquer les réservations CONFIRMED comme COMPLETED
-     *
-     * Exécution : Toutes les heures
-     * cron = "0 0 * * * *"
+     * Marque comme COMPLETED les réservations CONFIRMED dont la fin est passée
+     * Exécuté toutes les heures
      */
-    @Scheduled(cron = "0 0 * * * *")
+    @Scheduled(fixedRate = 3600000) // 1 heure = 3 600 000 ms
     @Transactional
     public void completeFinishedBookings() {
-        log.debug("Début vérification réservations CONFIRMED à finaliser");
+        log.debug("Running scheduled task: completeFinishedBookings");
 
         try {
-            LocalDateTime cutoffTime = LocalDateTime.now(ZoneId.of(timezone)).minusMinutes(30);
+            LocalDateTime cutoffTime = LocalDateTime.now();
+            List<Booking> finishedBookings = bookingRepository.findBookingsToComplete(cutoffTime);
 
-            List<Booking> bookingsToComplete = bookingRepository.findBookingsToComplete(cutoffTime);
+            if (!finishedBookings.isEmpty()) {
+                log.info("Found {} finished CONFIRMED bookings to mark as COMPLETED", finishedBookings.size());
 
-            if (bookingsToComplete.isEmpty()) {
-                log.debug("Aucune réservation CONFIRMED à finaliser");
-                return;
+                for (Booking booking : finishedBookings) {
+                    booking.setBookingStatus(BookingStatus.COMPLETED);
+                    bookingRepository.save(booking);
+                    log.info("Booking {} marked as COMPLETED (ended at {})",
+                            booking.getId(),
+                            booking.getEndDateTime());
+                }
+
+                log.info("Successfully completed {} bookings", finishedBookings.size());
+            } else {
+                log.debug("No finished CONFIRMED bookings found");
             }
-
-            log.info("Traitement de {} réservation(s) CONFIRMED à finaliser",
-                    bookingsToComplete.size());
-
-            for (Booking booking : bookingsToComplete) {
-                booking.setBookingStatus(BookingStatus.COMPLETED);
-                bookingRepository.save(booking);
-
-                log.info("Réservation {} marquée COMPLETED (période terminée)",
-                        booking.getId());
-            }
-
-            log.info("{} réservation(s) marquée(s) COMPLETED avec succès",
-                    bookingsToComplete.size());
 
         } catch (Exception e) {
-            log.error("Erreur lors de la finalisation des réservations", e);
+            log.error("Error while completing finished bookings", e);
+            // Ne pas propager l'exception pour ne pas bloquer les prochaines exécutions
         }
     }
 
     /**
-     * TÂCHE 3 (OPTIONNELLE) : Nettoyage des anciennes données
-     *
-     * Exécution : Tous les jours à 3h du matin
-     * cron = "0 0 3 * * *"
+     * Méthode utilitaire pour forcer l'exécution manuelle (pour les tests ou admin)
      */
-    @Scheduled(cron = "0 0 3 * * *")
-    public void cleanupOldData() {
-        log.debug("Nettoyage des données obsolètes");
+    public void forceExpirePendingBookings() {
+        log.info("Manual trigger: expirePendingBookings");
+        expirePendingBookings();
+    }
 
-        // Ici on pourrait :
-        // - Archiver les vieilles réservations COMPLETED (> 1 an)
-        // - Générer des statistiques
-        // - Nettoyer les logs
-
-        log.debug("Nettoyage terminé");
+    /**
+     * Méthode utilitaire pour forcer l'exécution manuelle (pour les tests ou admin)
+     */
+    public void forceCompleteFinishedBookings() {
+        log.info("Manual trigger: completeFinishedBookings");
+        completeFinishedBookings();
     }
 }

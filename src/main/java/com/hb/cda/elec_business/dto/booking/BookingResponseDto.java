@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -21,11 +22,10 @@ import java.time.LocalTime;
 public class BookingResponseDto {
 
     private String id;
-    private LocalDate startDate;
-    private LocalDate endDate;
-    private LocalTime startHour;
-    private LocalTime endHour;
-    private BigDecimal paidAmount;
+    private LocalDateTime startDateTime;
+    private LocalDateTime endDateTime;
+    private BigDecimal totalAmount;
+    private Instant expiresAt;
     private BookingStatus bookingStatus;
     private String invoicePath;
     private LocalDateTime createdAt;

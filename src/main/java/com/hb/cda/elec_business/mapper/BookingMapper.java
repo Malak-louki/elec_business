@@ -2,86 +2,116 @@ package com.hb.cda.elec_business.mapper;
 
 import com.hb.cda.elec_business.dto.booking.BookingResponseDto;
 import com.hb.cda.elec_business.entity.Booking;
-import lombok.extern.slf4j.Slf4j;
+import com.hb.cda.elec_business.entity.ChargingStation;
+import com.hb.cda.elec_business.entity.Payment;
+import com.hb.cda.elec_business.entity.User;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Slf4j
+/**
+ * Mapper pour convertir les entités Booking en DTOs
+ */
 public class BookingMapper {
 
+    private BookingMapper() {
+        // Classe utilitaire, pas d'instanciation
+    }
+
+    /**
+     * Convertit une entité Booking en DTO complet
+     */
     public static BookingResponseDto toResponseDto(Booking booking) {
         if (booking == null) {
             return null;
         }
 
-        BookingResponseDto.BookingResponseDtoBuilder builder = BookingResponseDto.builder()
+        return BookingResponseDto.builder()
                 .id(booking.getId())
-                .startDateTime(booking.getStartDateTime())
-                .endDateTime(booking.getEndDateTime())
-                .totalAmount(booking.getTotalAmount()) // CORRECTION
+                .startDate(booking.getStartDate())
+                .endDate(booking.getEndDate())
+                .startHour(booking.getStartHour())
+                .endHour(booking.getEndHour())
+                .paidAmount(booking.getPaidAmount())
                 .bookingStatus(booking.getBookingStatus())
                 .invoicePath(booking.getInvoicePath())
                 .createdAt(booking.getCreatedAt())
                 .updatedAt(booking.getUpdatedAt())
-                .expiresAt(booking.getExpiresAt());
-
-        // User info
-        if (booking.getUser() != null) {
-            builder.user(BookingResponseDto.UserInfoDto.builder()
-                    .id(booking.getUser().getId())
-                    .firstName(booking.getUser().getFirstName())
-                    .lastName(booking.getUser().getLastName())
-                    .email(booking.getUser().getEmail())
-                    .phone(booking.getUser().getPhone())
-                    .build());
-        }
-
-        // Station info
-        if (booking.getChargingStation() != null) {
-            String address = "";
-            String city = "";
-
-            if (booking.getChargingStation().getChargingLocation() != null &&
-                    booking.getChargingStation().getChargingLocation().getAddress() != null) {
-                var addr = booking.getChargingStation().getChargingLocation().getAddress();
-                address = String.format("%s %s",
-                        addr.getNumber() != null ? addr.getNumber() : "",
-                        addr.getStreet()).trim();
-                city = addr.getCity();
-            }
-
-            builder.chargingStation(BookingResponseDto.StationInfoDto.builder()
-                    .id(booking.getChargingStation().getId())
-                    .name(booking.getChargingStation().getName())
-                    .hourlyPrice(booking.getChargingStation().getHourlyPrice())
-                    .chargingPower(booking.getChargingStation().getChargingPower())
-                    .address(address)
-                    .city(city)
-                    .build());
-        }
-
-        // Payment info
-        if (booking.getPayment() != null) {
-            builder.payment(BookingResponseDto.PaymentInfoDto.builder()
-                    .id(booking.getPayment().getId())
-                    .stripePaymentIntentId(booking.getPayment().getStripePaymentIntentId())
-                    .paymentStatus(booking.getPayment().getPaymentStatus().name())
-                    .build());
-        }
-
-        return builder.build();
+                .chargingStation(mapChargingStationSummary(booking.getChargingStation()))
+                .customer(mapUserSummary(booking.getUser()))
+                .payment(mapPaymentSummary(booking.getPayment()))
+                .build();
     }
 
+    /**
+     * Convertit une liste de Bookings en liste de DTOs
+     */
     public static List<BookingResponseDto> toResponseDtoList(List<Booking> bookings) {
-        if (bookings == null || bookings.isEmpty()) {
-            return Collections.emptyList();
+        if (bookings == null) {
+            return List.of();
         }
-
         return bookings.stream()
                 .map(BookingMapper::toResponseDto)
-                .filter(dto -> dto != null)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Mappe les informations essentielles d'une ChargingStation
+     */
+    private static BookingResponseDto.ChargingStationSummaryDto mapChargingStationSummary(ChargingStation station) {
+        if (station == null) {
+            return null;
+        }
+
+        String address = null;
+        if (station.getChargingLocation() != null && station.getChargingLocation().getAddress() != null) {
+            var addr = station.getChargingLocation().getAddress();
+            address = String.format("%s %s, %s %s",
+                    addr.getNumber() != null ? addr.getNumber() : "",
+                    addr.getStreet(),
+                    addr.getPostalCode(),
+                    addr.getCity()
+            );
+        }
+
+        return BookingResponseDto.ChargingStationSummaryDto.builder()
+                .id(station.getId())
+                .name(station.getName())
+                .hourlyPrice(station.getHourlyPrice())
+                .chargingPower(station.getChargingPower())
+                .address(address)
+                .build();
+    }
+
+    /**
+     * Mappe les informations essentielles d'un User
+     */
+    private static BookingResponseDto.UserSummaryDto mapUserSummary(User user) {
+        if (user == null) {
+            return null;
+        }
+
+        return BookingResponseDto.UserSummaryDto.builder()
+                .id(user.getId())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .build();
+    }
+
+    /**
+     * Mappe les informations essentielles d'un Payment
+     */
+    private static BookingResponseDto.PaymentSummaryDto mapPaymentSummary(Payment payment) {
+        if (payment == null) {
+            return null;
+        }
+
+        return BookingResponseDto.PaymentSummaryDto.builder()
+                .id(payment.getId())
+                .stripePaymentIntentId(payment.getStripePaymentIntentId())
+                .paymentStatus(payment.getPaymentStatus().toString())
+                .build();
     }
 }

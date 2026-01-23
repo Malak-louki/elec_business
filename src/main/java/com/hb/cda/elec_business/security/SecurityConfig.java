@@ -19,8 +19,9 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
+
 @Configuration
 @EnableMethodSecurity
 @RequiredArgsConstructor
@@ -28,6 +29,7 @@ public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -35,21 +37,20 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        // routes publiques - ORDRE IMPORTANT
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/error").permitAll()
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll().requestMatchers(HttpMethod.GET, "/api/bookings/check-availability").permitAll()
-//                       .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                         .requestMatchers(HttpMethod.GET, "/api/bookings/check-availability").permitAll()
-                        // tout le reste nécessite un JWT valide
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/bookings/check-availability").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
+                .exceptionHandling(ex ->
+                        ex.authenticationEntryPoint(restAuthenticationEntryPoint)
+                )
                 .authenticationProvider(daoAuthenticationProvider())
-                // Filtre JWT ajouté AVANT
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -70,15 +71,17 @@ public class SecurityConfig {
 
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("http://localhost:4200"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*")); // Accepte tous les headers
-        config.setAllowCredentials(true);
-        config.setMaxAge(Duration.ofHours(1));
+        CorsConfiguration configuration = new CorsConfiguration();
+
+
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:4200"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
+        source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 

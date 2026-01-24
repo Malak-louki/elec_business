@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -346,22 +347,19 @@ public class BookingServiceImpl implements BookingService {
             throw new BookingValidationException("La date/heure de fin doit être après la date/heure de début");
         }
 
-        // Vérifier que la réservation ne dépasse pas 7 jours
-        long daysBetween = Duration.between(startDateTime, endDateTime).toDays();
-        if (daysBetween > 7) {
-            throw new BookingValidationException("La durée maximale de réservation est de 7 jours");
+        long minutesBetween = Duration.between(startDateTime, endDateTime).toMinutes();
+
+        // Vérifier une durée minimale de 1 heure (60 minutes)
+        if (minutesBetween < 60) {
+            throw new BookingValidationException("La durée minimale de réservation est de 1 heure");
         }
 
-        // Vérifier une durée minimale de 1 heure
-        long hoursBetween = Duration.between(startDateTime, endDateTime).toHours();
-        if (hoursBetween < 1) {
-            throw new BookingValidationException("La durée minimale de réservation est de 1 heure");
+        // Vérifier que la réservation ne dépasse pas 7 jours (168 heures = 10080 minutes)
+        if (minutesBetween > 10080) {  // 168h × 60min
+            throw new BookingValidationException("La durée maximale de réservation est de 7 jours (168 heures)");
         }
     }
 
-    /**
-     * Calcule le montant total de la réservation en fonction du tarif horaire
-     */
     private BigDecimal calculateBookingAmount(BigDecimal hourlyPrice,
                                               LocalDateTime startDateTime,
                                               LocalDateTime endDateTime) {
@@ -369,7 +367,9 @@ public class BookingServiceImpl implements BookingService {
         long minutes = Duration.between(startDateTime, endDateTime).toMinutes();
         double hours = Math.ceil(minutes / 60.0);
 
-        BigDecimal totalAmount = hourlyPrice.multiply(BigDecimal.valueOf(hours));
+        BigDecimal totalAmount = hourlyPrice
+                .multiply(BigDecimal.valueOf(hours))
+                .setScale(2, RoundingMode.HALF_UP);
 
         log.info("Calculated booking amount: {} (hourly rate: {}, duration: {} hours)",
                 totalAmount, hourlyPrice, hours);

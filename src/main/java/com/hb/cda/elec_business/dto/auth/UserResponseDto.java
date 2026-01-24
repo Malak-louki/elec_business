@@ -1,5 +1,6 @@
 package com.hb.cda.elec_business.dto.auth;
 
+import com.hb.cda.elec_business.entity.UserStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,4 +21,6 @@ public class UserResponseDto {
     private String email;
     private String phone;
     private Set<String> roles;
+    private String userStatus;
 }
+

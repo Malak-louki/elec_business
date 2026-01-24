@@ -8,8 +8,13 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
+/**
+ * DTO pour retourner les informations d'une réservation
+ */
 @Data
 @Builder
 @NoArgsConstructor
@@ -17,47 +22,47 @@ import java.time.LocalDateTime;
 public class BookingResponseDto {
 
     private String id;
-
-    /**
-     * Date et heure de début de la réservation
-     */
     private LocalDateTime startDateTime;
-
-    /**
-     * Date et heure de fin de la réservation
-     */
     private LocalDateTime endDateTime;
-
-    /**
-     * Montant total calculé et dû
-     * NOTE : C'est le montant que l'utilisateur DOIT payer,
-     * pas forcément ce qu'il A DÉJÀ payé.
-     */
     private BigDecimal totalAmount;
-
+    private Instant expiresAt;
     private BookingStatus bookingStatus;
     private String invoicePath;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
-    // Timestamps d'audit
-    private Instant createdAt;
-    private Instant updatedAt;
+    // Informations sur la borne
+    private ChargingStationSummaryDto chargingStation;
+
+    // Informations sur le client (pour le dashboard owner)
+    private UserSummaryDto customer;
+
+    // Informations sur le paiement
+    private PaymentSummaryDto payment;
 
     /**
-     * Date limite pour payer (si PENDING)
-     * null si déjà CONFIRMED/CANCELLED/EXPIRED/COMPLETED
+     * Sous-DTO pour résumer les infos de la borne
      */
-    private Instant expiresAt;
-
-    // Informations liées
-    private UserInfoDto user;
-    private StationInfoDto chargingStation;
-    private PaymentInfoDto payment;
-
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class UserInfoDto {
+    public static class ChargingStationSummaryDto {
+        private String id;
+        private String name;
+        private BigDecimal hourlyPrice;
+        private String chargingPower;
+        private String address;
+    }
+
+    /**
+     * Sous-DTO pour résumer les infos du client
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class UserSummaryDto {
         private String id;
         private String firstName;
         private String lastName;
@@ -65,24 +70,14 @@ public class BookingResponseDto {
         private String phone;
     }
 
+    /**
+     * Sous-DTO pour résumer les infos du paiement
+     */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class StationInfoDto {
-        private String id;
-        private String name;
-        private BigDecimal hourlyPrice;
-        private String chargingPower;
-        private String address;
-        private String city;
-    }
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class PaymentInfoDto {
+    public static class PaymentSummaryDto {
         private String id;
         private String stripePaymentIntentId;
         private String paymentStatus;

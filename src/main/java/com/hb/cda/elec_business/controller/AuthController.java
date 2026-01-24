@@ -11,8 +11,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -28,9 +33,21 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseDto> login(@Valid @RequestBody LoginRequestDto requestDto){
-        AuthResponseDto responseDto = authService.login(requestDto);
-        return ResponseEntity.ok(responseDto);
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequestDto requestDto) {
+        try {
+            AuthResponseDto responseDto = authService.login(requestDto);
+            return ResponseEntity.ok(responseDto);
+        } catch (BadCredentialsException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "invalid_credentials");
+            error.put("message", "Identifiant ou mot de passe incorrect.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+        } catch (DisabledException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", "account_disabled");
+            error.put("message", "Votre compte n'est pas activé. Vérifiez votre email.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+        }
     }
 
     /**

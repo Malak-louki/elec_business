@@ -6,6 +6,7 @@ import com.hb.cda.elec_business.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,21 +24,14 @@ public class UserController {
      * POST /api/users/upgrade-to-owner
      */
     @PostMapping("/upgrade-to-owner")
-    public ResponseEntity<UpgradeResponseDto> upgradeToOwner(
-            @AuthenticationPrincipal User user
-    ) {
-        log.info("📤 User {} requesting upgrade to OWNER", user.getEmail());
+    public ResponseEntity<UpgradeResponseDto> upgradeToOwner(Authentication authentication) {
+        log.info("📤 User {} requesting upgrade to OWNER",
+                ((User) authentication.getPrincipal()).getEmail());
 
-        try {
-            UpgradeResponseDto response = userService.upgradeToOwner(user);
-            log.info("✅ User {} successfully upgraded to OWNER", user.getEmail());
-            return ResponseEntity.ok(response);
-        } catch (IllegalStateException e) {
-            log.warn("⚠️ Upgrade failed for {}: {}", user.getEmail(), e.getMessage());
-            throw e;
-        } catch (Exception e) {
-            log.error("❌ Unexpected error during upgrade for {}", user.getEmail(), e);
-            throw e;
-        }
+        User currentUser = (User) authentication.getPrincipal();
+        UpgradeResponseDto response = userService.upgradeToOwner(currentUser);
+
+        log.info("✅ User {} successfully upgraded", currentUser.getEmail());
+        return ResponseEntity.ok(response);
     }
 }

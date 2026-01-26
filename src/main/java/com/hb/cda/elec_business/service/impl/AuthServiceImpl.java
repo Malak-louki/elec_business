@@ -55,18 +55,11 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Phone number already exists");
         }
 
-        // 2. Rôle par défaut - CRÉER S'IL N'EXISTE PAS
-        log.info("Fetching or creating default USER role...");
+        // 2. Rôle par défaut - Le rôle USER existe maintenant grâce au RoleInitializer
+        log.info("Fetching USER role...");
         Role userRole = roleRepository.findByName(RoleName.USER)
-                .orElseGet(() -> {
-                    log.warn("USER role not found, creating it...");
-                    Role newRole = new Role();
-                    newRole.setName(RoleName.USER);
-                    Role savedRole = roleRepository.save(newRole);
-                    log.info("USER role created with ID: {}", savedRole.getId());
-                    return savedRole;
-                });
-        log.info("Role ready: {}", userRole.getName());
+                .orElseThrow(() -> new IllegalStateException("USER role not found - RoleInitializer may have failed"));
+        log.info("Role found: {}", userRole.getName());
 
         // 3. Construction de l'entité User
         log.info("Creating new user entity...");

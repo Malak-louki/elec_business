@@ -1,9 +1,12 @@
 package com.hb.cda.elec_business.service.impl;
 
+import com.hb.cda.elec_business.dto.auth.UserResponseDto;
 import com.hb.cda.elec_business.dto.user.UpgradeResponseDto;
 import com.hb.cda.elec_business.entity.Role;
 import com.hb.cda.elec_business.entity.RoleName;
 import com.hb.cda.elec_business.entity.User;
+import com.hb.cda.elec_business.entity.UserStatus;
+import com.hb.cda.elec_business.mapper.UserMapper;
 import com.hb.cda.elec_business.repository.RoleRepository;
 import com.hb.cda.elec_business.repository.UserRepository;
 import com.hb.cda.elec_business.service.UserService;
@@ -24,51 +27,45 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public UpgradeResponseDto upgradeToOwner(User user) {
-        log.info("🔄 Starting upgrade process for user: {}", user.getEmail());
+    public UpgradeResponseDto upgradeToOwner(User currentUser) {
+        log.info("🔄 Starting upgrade process for user: {}", currentUser.getEmail());
 
-        // Vérifier si l'utilisateur a déjà le rôle OWNER
-        boolean hasOwnerRole = user.getRoles().stream()
-                .anyMatch(role -> role.getName() == RoleName.OWNER);
-
-        if (hasOwnerRole) {
-            log.warn("⚠️ User {} already has OWNER role", user.getEmail());
-            throw new IllegalStateException("Vous êtes déjà propriétaire");
+        // Vérifier que l'utilisateur est ACTIVE
+        if (currentUser.getUserStatus() != UserStatus.ACTIVE) {
+            log.error("❌ Cannot upgrade inactive user: {}", currentUser.getEmail());
+            throw new IllegalStateException("Le compte doit être activé pour devenir propriétaire");
         }
 
-        // Récupérer le rôle OWNER depuis la base de données
+        // Récupérer le rôle OWNER
+        log.info("🔍 Fetching OWNER role...");
         Role ownerRole = roleRepository.findByName(RoleName.OWNER)
-                .orElseThrow(() -> {
-                    log.error("❌ OWNER role not found in database");
-                    return new IllegalStateException("Rôle OWNER introuvable dans la base de données");
-                });
+                .orElseThrow(() -> new IllegalStateException("OWNER role not found - RoleInitializer may have failed"));
+        log.info("✅ OWNER role found");
 
-        // Ajouter le rôle OWNER (on garde aussi le rôle USER)
-        user.getRoles().add(ownerRole);
+        // Vérifier si l'utilisateur a déjà le rôle OWNER
+        boolean alreadyOwner = currentUser.getRoles().stream()
+                .anyMatch(role -> role.getName() == RoleName.OWNER);
 
-        // Sauvegarder l'utilisateur
-        User updatedUser = userRepository.save(user);
+        if (alreadyOwner) {
+            log.warn("⚠️ User {} already has OWNER role", currentUser.getEmail());
+            throw new IllegalStateException("L'utilisateur a déjà le rôle de propriétaire");
+        }
 
-        log.info("✅ User {} successfully upgraded to OWNER. Current roles: {}",
-                user.getEmail(),
-                updatedUser.getRoles().stream()
-                        .map(r -> r.getName().name())
-                        .collect(Collectors.joining(", ")));
+        // Ajouter le rôle OWNER
+        log.info("➕ Adding OWNER role to user...");
+        currentUser.getRoles().add(ownerRole);
+        User updatedUser = userRepository.save(currentUser);
 
-        // Récupérer les noms des rôles
+        log.info("✅ User {} successfully upgraded to OWNER", currentUser.getEmail());
+
+        // Construire la réponse
         List<String> roleNames = updatedUser.getRoles().stream()
                 .map(role -> role.getName().name())
-                .collect(Collectors.toList());
+                .toList();
 
         return UpgradeResponseDto.builder()
-                .message("Votre compte a été mis à niveau vers propriétaire avec succès")
+                .message("Vous avez été promu au rôle de propriétaire avec succès !")
                 .roles(roleNames)
                 .build();
     }
 }
-
-
-
-
-
-

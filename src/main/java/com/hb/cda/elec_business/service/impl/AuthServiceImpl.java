@@ -14,6 +14,7 @@ import com.hb.cda.elec_business.repository.UserRepository;
 import com.hb.cda.elec_business.security.JwtService;
 import com.hb.cda.elec_business.service.AuthService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -22,12 +23,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
@@ -40,19 +41,28 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponseDto register(RegisterRequestDto request) {
+        log.info("=== AuthService.register() CALLED ===");
+        log.info("Checking if email exists: {}", request.getEmail());
+
         // 1. Règles métier
         if (userRepository.existsByEmail(request.getEmail())) {
+            log.warn("Email already exists: {}", request.getEmail());
             throw new IllegalArgumentException("Email already exists");
         }
+
         if (request.getPhone() != null && userRepository.existsByPhone(request.getPhone())) {
+            log.warn("Phone number already exists: {}", request.getPhone());
             throw new IllegalArgumentException("Phone number already exists");
         }
 
         // 2. Rôle par défaut
+        log.info("Fetching default USER role...");
         Role userRole = roleRepository.findByName(RoleName.USER)
                 .orElseThrow(() -> new IllegalStateException("Default role USER not found"));
+        log.info("Default role found: {}", userRole.getName());
 
         // 3. Construction de l'entité User
+        log.info("Creating new user entity...");
         User user = new User();
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
@@ -65,18 +75,29 @@ public class AuthServiceImpl implements AuthService {
         user.setRoles(roles);
 
         // 4. Persistance
+        log.info("Saving user to database...");
         User savedUser = userRepository.save(user);
+        log.info("User saved with ID: {}", savedUser.getId());
 
-        //5. Création do code de validation et envoi de l'email
-        validationService.createAndSendValidation(savedUser);
+        // 5. Création du code de validation et envoi de l'email
+        log.info("Creating validation code and sending email...");
+        try {
+            validationService.createAndSendValidation(savedUser);
+            log.info("Validation email sent successfully");
+        } catch (Exception e) {
+            log.error("Failed to send validation email", e);
+            // Continue quand même, l'utilisateur est créé
+        }
 
-        // 6. Génération du token (même si le compte n'est pas encore actif)
-        // L'utilisateur ne pourra pas l'utiliser tant qu'il n'a pas validé son email
+        // 6. Génération du token
+        log.info("Generating JWT token...");
         String accessToken = jwtService.generateAccessToken(savedUser);
 
-        // 6. Mapping DTO
+        // 7. Mapping DTO
+        log.info("Mapping user to DTO...");
         UserResponseDto userDto = UserMapper.toDto(savedUser);
 
+        log.info("=== Registration complete for: {} ===", request.getEmail());
         return AuthResponseDto.builder()
                 .accessToken(accessToken)
                 .tokenType("Bearer")
@@ -86,40 +107,48 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponseDto login(LoginRequestDto loginRequestDto) {
-        // 1. Authentification Spring Security (email + password)
-        // Spring Security vérifiera automatiquement si le compte est enabled (ACTIVE)
-        // grâce à la méthode isEnabled() de User
+        log.info("=== AuthService.login() CALLED ===");
+        log.info("Attempting authentication for: {}", loginRequestDto.getEmail());
+
         try {
+            // 1. Authentification Spring Security
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             loginRequestDto.getEmail(),
                             loginRequestDto.getPassword()
                     )
             );
+            log.info("Authentication successful");
 
             // 2. Récupération de l'utilisateur authentifié
             User user = (User) authentication.getPrincipal();
+            log.info("User retrieved: {} (ID: {})", user.getEmail(), user.getId());
 
-            //3. Double Vérification du statut (sécurité)
+            // 3. Double Vérification du statut
             if (user.getUserStatus() != UserStatus.ACTIVE) {
+                log.warn("User status is not ACTIVE: {}", user.getUserStatus());
                 throw new DisabledException("Account is not activated yet, please check your email.");
             }
 
             // 4. Génération du token JWT
+            log.info("Generating JWT token...");
             String accessToken = jwtService.generateAccessToken(user);
 
             // 5. Mapping vers DTO
             UserResponseDto userDto = UserMapper.toDto(user);
 
-            // 6. Réponse
+            log.info("=== Login complete for: {} ===", loginRequestDto.getEmail());
             return AuthResponseDto.builder()
                     .accessToken(accessToken)
                     .tokenType("Bearer")
                     .user(userDto)
                     .build();
-        }catch (DisabledException e) {
+        } catch (DisabledException e) {
+            log.warn("Login failed - Account disabled: {}", loginRequestDto.getEmail());
             throw new DisabledException("Account is not activated yet, please check your email to activate your account.");
+        } catch (Exception e) {
+            log.error("Login failed for: {}", loginRequestDto.getEmail(), e);
+            throw e;
         }
-
     }
 }

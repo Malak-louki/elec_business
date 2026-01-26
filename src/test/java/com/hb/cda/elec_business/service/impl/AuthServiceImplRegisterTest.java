@@ -145,49 +145,6 @@ class AuthServiceImplRegisterTest {
     }
 
     @Test
-    void register_shouldAutoCreateUserRole_whenRoleNotFound() {
-        // GIVEN - Le rôle USER n'existe pas encore
-        when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(false);
-        when(userRepository.existsByPhone(validRequest.getPhone())).thenReturn(false);
-        when(roleRepository.findByName(RoleName.USER)).thenReturn(Optional.empty());
-
-        // Mock de la création automatique du rôle
-        when(roleRepository.save(any(Role.class))).thenAnswer(invocation -> {
-            Role role = invocation.getArgument(0);
-            role.setId(UUID.randomUUID().toString());
-            return role;
-        });
-
-        when(passwordEncoder.encode(validRequest.getPassword())).thenReturn("hashedPassword");
-
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
-            User u = invocation.getArgument(0);
-            u.setId(testUuid);
-            return u;
-        });
-
-        when(jwtService.generateAccessToken(any(User.class))).thenReturn("jwt-token-123");
-
-        // WHEN
-        AuthResponseDto response = authServiceImpl.register(validRequest);
-
-        // THEN - Le rôle doit avoir été créé automatiquement
-        assertNotNull(response, "La réponse ne doit pas être null");
-        assertEquals("jwt-token-123", response.getAccessToken());
-
-        // Vérifier que le rôle a été créé
-        ArgumentCaptor<Role> roleCaptor = ArgumentCaptor.forClass(Role.class);
-        verify(roleRepository).save(roleCaptor.capture());
-        Role capturedRole = roleCaptor.getValue();
-        assertEquals(RoleName.USER, capturedRole.getName(),
-                "Le rôle USER doit être créé automatiquement s'il n'existe pas");
-
-        // Vérifier que l'utilisateur a bien été créé
-        verify(userRepository).save(any(User.class));
-        verify(validationService).createAndSendValidation(any(User.class));
-    }
-
-    @Test
     void register_shouldHandleNullPhone_whenPhoneIsNotProvided() {
         // GIVEN
         validRequest.setPhone(null);

@@ -20,7 +20,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-
 import java.util.Optional;
 import java.util.UUID;
 
@@ -47,7 +46,7 @@ class AuthServiceImplRegisterTest {
     private AuthenticationManager authenticationManager;
 
     @Mock
-    private UserValidationServiceImpl validationService; // ✅ Ajout du mock
+    private UserValidationServiceImpl validationService;
 
     @InjectMocks
     private AuthServiceImpl authServiceImpl;
@@ -100,7 +99,6 @@ class AuthServiceImplRegisterTest {
         assertEquals(testUuid, userDto.getId());
         assertEquals(validRequest.getEmail(), userDto.getEmail());
 
-        // ✅ Vérification de la création de l'utilisateur avec statut PENDING
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(userCaptor.capture());
         User capturedUser = userCaptor.getValue();
@@ -109,7 +107,6 @@ class AuthServiceImplRegisterTest {
                 "Le statut doit être PENDING après l'inscription");
         assertEquals("hashedPassword", capturedUser.getPassword());
 
-        // ✅ Vérification que le service de validation a été appelé
         verify(validationService).createAndSendValidation(capturedUser);
     }
 
@@ -127,7 +124,7 @@ class AuthServiceImplRegisterTest {
         assertEquals("Email already exists", exception.getMessage());
         verify(userRepository, never()).save(any());
         verify(jwtService, never()).generateAccessToken(any());
-        verify(validationService, never()).createAndSendValidation(any()); // ✅ Ajout
+        verify(validationService, never()).createAndSendValidation(any());
     }
 
     @Test
@@ -144,25 +141,50 @@ class AuthServiceImplRegisterTest {
 
         assertEquals("Phone number already exists", exception.getMessage());
         verify(userRepository, never()).save(any());
-        verify(validationService, never()).createAndSendValidation(any()); // ✅ Ajout
+        verify(validationService, never()).createAndSendValidation(any());
     }
 
     @Test
-    void register_shouldThrowException_whenUserRoleNotFound() {
-        // GIVEN
+    void register_shouldAutoCreateUserRole_whenRoleNotFound() {
+        // GIVEN - Le rôle USER n'existe pas encore
         when(userRepository.existsByEmail(validRequest.getEmail())).thenReturn(false);
         when(userRepository.existsByPhone(validRequest.getPhone())).thenReturn(false);
         when(roleRepository.findByName(RoleName.USER)).thenReturn(Optional.empty());
 
-        // WHEN & THEN
-        IllegalStateException exception = assertThrows(
-                IllegalStateException.class,
-                () -> authServiceImpl.register(validRequest)
-        );
+        // Mock de la création automatique du rôle
+        when(roleRepository.save(any(Role.class))).thenAnswer(invocation -> {
+            Role role = invocation.getArgument(0);
+            role.setId(UUID.randomUUID().toString());
+            return role;
+        });
 
-        assertEquals("Default role USER not found", exception.getMessage());
-        verify(userRepository, never()).save(any());
-        verify(validationService, never()).createAndSendValidation(any()); // ✅ Ajout
+        when(passwordEncoder.encode(validRequest.getPassword())).thenReturn("hashedPassword");
+
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setId(testUuid);
+            return u;
+        });
+
+        when(jwtService.generateAccessToken(any(User.class))).thenReturn("jwt-token-123");
+
+        // WHEN
+        AuthResponseDto response = authServiceImpl.register(validRequest);
+
+        // THEN - Le rôle doit avoir été créé automatiquement
+        assertNotNull(response, "La réponse ne doit pas être null");
+        assertEquals("jwt-token-123", response.getAccessToken());
+
+        // Vérifier que le rôle a été créé
+        ArgumentCaptor<Role> roleCaptor = ArgumentCaptor.forClass(Role.class);
+        verify(roleRepository).save(roleCaptor.capture());
+        Role capturedRole = roleCaptor.getValue();
+        assertEquals(RoleName.USER, capturedRole.getName(),
+                "Le rôle USER doit être créé automatiquement s'il n'existe pas");
+
+        // Vérifier que l'utilisateur a bien été créé
+        verify(userRepository).save(any(User.class));
+        verify(validationService).createAndSendValidation(any(User.class));
     }
 
     @Test
@@ -195,7 +217,6 @@ class AuthServiceImplRegisterTest {
         verify(userRepository).save(userCaptor.capture());
         assertNull(userCaptor.getValue().getPhone());
 
-        // ✅ Vérification de l'envoi d'email même sans téléphone
         verify(validationService).createAndSendValidation(any(User.class));
     }
 

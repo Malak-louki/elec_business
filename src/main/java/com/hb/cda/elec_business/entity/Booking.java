@@ -16,7 +16,7 @@ public class Booking extends Auditable {
 
     /**
      * Date et heure de début de la réservation
-     * Timezone : Europe/Paris (configuré dans application.properties)
+     * Timezone : Europe/Paris
      */
     @Column(name = "start_date_time", nullable = false)
     private LocalDateTime startDateTime;

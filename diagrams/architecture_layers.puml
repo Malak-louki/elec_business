@@ -1,0 +1,107 @@
+@startuml Architecture_Layered_ElecBusiness
+
+title Architecture en Couches - Elec Business
+
+skinparam rectangle {
+    BackgroundColor<<presentation>> #E8F4F8
+    BackgroundColor<<application>> #D4F1D4
+    BackgroundColor<<domain>> #FFE6E6
+    BackgroundColor<<infrastructure>> #FFE6CC
+    BorderColor #333333
+    FontColor #000000
+    Shadowing false
+}
+
+skinparam arrow {
+    Color #555555
+    FontColor #000000
+}
+
+' ==============================================
+' PRESENTATION LAYER
+' ==============================================
+package "**PRESENTATION LAYER**\n(Controllers REST)" <<presentation>> {
+    rectangle "AuthController" as AuthCtrl
+    rectangle "ChargingStationController" as StationCtrl
+    rectangle "BookingController" as BookingCtrl
+    rectangle "PaymentController" as PaymentCtrl
+    rectangle "OwnerDashboardController" as DashboardCtrl
+}
+
+' ==============================================
+' APPLICATION LAYER
+' ==============================================
+package "**APPLICATION LAYER**\n(Services Métier)" <<application>> {
+    rectangle "AuthService" as AuthService
+    rectangle "UserValidationService" as ValidationService
+    rectangle "ChargingStationService" as StationService
+    rectangle "BookingService" as BookingService
+    rectangle "PaymentService\n(Simulation)" as PaymentService #FFCCCC
+    rectangle "OwnerDashboardService" as DashboardService
+    
+    note right of PaymentService
+        Mode simulation
+        pour MVP
+    end note
+}
+
+' ==============================================
+' DOMAIN LAYER
+' ==============================================
+package "**DOMAIN LAYER**\n(Entités JPA)" <<domain>> {
+    rectangle "User + UserStatus" as UserEntity
+    rectangle "Role + RoleName" as RoleEntity
+    rectangle "ChargingStation" as StationEntity
+    rectangle "Booking" as BookingEntity
+    rectangle "Payment" as PaymentEntity
+    rectangle "UserValidation" as ValidationEntity
+}
+
+' ==============================================
+' INFRASTRUCTURE LAYER
+' ==============================================
+package "**INFRASTRUCTURE LAYER**\n(Persistence + Sécurité)" <<infrastructure>> {
+    rectangle "Repositories\n(Spring Data JPA)" as Repositories
+    rectangle "Security\n(JWT + Filters)" as Security
+    rectangle "BookingScheduler\n(@Scheduled)" as Scheduler
+    rectangle "Email Service\n(@Async)" as Email
+}
+
+' ==============================================
+' BASE DE DONNÉES
+' ==============================================
+database "MySQL 8.0" as MySQL
+
+' ==============================================
+' RELATIONS
+' ==============================================
+AuthCtrl --> AuthService
+StationCtrl --> StationService
+BookingCtrl --> BookingService
+PaymentCtrl --> PaymentService
+DashboardCtrl --> DashboardService
+
+AuthService --> ValidationService
+AuthService --> Email
+BookingService --> PaymentService
+
+AuthService --> UserEntity
+StationService --> StationEntity
+BookingService --> BookingEntity
+PaymentService --> PaymentEntity
+
+AuthService --> Repositories
+StationService --> Repositories
+BookingService --> Repositories
+PaymentService --> Repositories
+DashboardService --> Repositories
+
+Repositories --> UserEntity
+Repositories --> StationEntity
+Repositories --> BookingEntity
+Repositories --> PaymentEntity
+
+Repositories --> MySQL
+Scheduler --> Repositories
+
+@enduml

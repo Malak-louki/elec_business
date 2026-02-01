@@ -40,7 +40,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/bookings/check-availability").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/bookings/availability").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->

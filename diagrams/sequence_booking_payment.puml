@@ -1,0 +1,123 @@
+@startuml sequence_booking_payment
+
+title Flux Réservation et Paiement - Elec Business
+
+actor "Utilisateur" as User
+participant "Frontend\nAngular" as Frontend
+participant "Security\nFilter" as Security
+participant "Booking\nController" as BookingCtrl
+participant "Booking\nService" as BookingSvc
+participant "Booking\nRepository" as BookingRepo
+participant "Payment\nController" as PaymentCtrl
+participant "Payment\nService" as PaymentSvc
+database "MySQL" as DB
+
+== Création de la réservation ==
+
+User -> Frontend: Sélectionne créneau
+activate Frontend
+
+Frontend -> BookingCtrl: POST /api/bookings\n+ JWT Token
+activate BookingCtrl
+
+Security -> Security: Valide JWT\nCharge User
+
+BookingCtrl -> BookingSvc: createBooking(request, user)
+activate BookingSvc
+
+BookingSvc -> BookingSvc: Valide dates\n(≥1h, ≤168h)
+
+BookingSvc -> BookingRepo: Vérifie conflits\nexistsConflictingBooking()
+activate BookingRepo
+BookingRepo -> DB: SELECT COUNT(*)\nWHERE status IN\n('PENDING','CONFIRMED')
+return hasConflict
+
+alt Créneau indisponible
+    BookingSvc --> BookingCtrl: throw BookingConflictException
+    BookingCtrl --> Frontend: 409 Conflict
+    Frontend --> User: ❌ Créneau déjà réservé
+end
+
+BookingSvc -> BookingSvc: Calcule montant\n(prix × heures arrondies)
+
+BookingSvc -> BookingRepo: save(booking)\nstatus=PENDING\nexpiresAt=now+15min
+BookingRepo -> DB: INSERT booking
+return booking (PENDING)
+
+BookingSvc --> BookingCtrl: BookingResponseDto
+deactivate BookingSvc
+BookingCtrl --> Frontend: 201 Created
+deactivate BookingCtrl
+
+Frontend --> User: ✅ Réservation créée\n⏱ Expire dans 15 min
+deactivate Frontend
+
+== Simulation du paiement ==
+
+User -> Frontend: Clique "Payer"
+activate Frontend
+
+Frontend -> PaymentCtrl: POST /api/payments/simulate\n{bookingId}
+activate PaymentCtrl
+
+PaymentCtrl -> PaymentSvc: simulatePayment(request, user)
+activate PaymentSvc
+
+PaymentSvc -> BookingRepo: findById(bookingId)
+BookingRepo -> DB: SELECT * FROM booking
+return booking
+
+alt Booking invalide ou expiré
+    PaymentSvc --> PaymentCtrl: throw IllegalArgumentException
+    PaymentCtrl --> Frontend: 400 Bad Request
+    Frontend --> User: ❌ Réservation invalide
+end
+
+PaymentSvc -> PaymentSvc: Génère ID simulation\n"pi_sim_" + UUID
+
+note over PaymentSvc
+  **Mode Simulation**
+  Pas d'appel API Stripe
+  
+  simulateSuccess=true → SUCCEEDED
+  simulateSuccess=false → FAILED
+end note
+
+alt Paiement réussi
+    PaymentSvc -> DB: INSERT payment\nstatus=SUCCEEDED
+    PaymentSvc -> DB: UPDATE booking\nstatus=CONFIRMED
+    
+    PaymentSvc --> PaymentCtrl: PaymentResponseDto\n(SUCCEEDED)
+    PaymentCtrl --> Frontend: 201 Created
+    Frontend --> User: ✅ Paiement confirmé\n✅ Réservation validée
+    
+else Paiement échoué
+    PaymentSvc -> DB: INSERT payment\nstatus=FAILED
+    note over PaymentSvc
+      Booking reste PENDING
+      (peut réessayer)
+    end note
+    
+    PaymentSvc --> PaymentCtrl: PaymentResponseDto\n(FAILED)
+    PaymentCtrl --> Frontend: 201 Created
+    Frontend --> User: ❌ Paiement échoué\n🔄 Réessayer
+end
+
+deactivate PaymentSvc
+deactivate PaymentCtrl
+deactivate Frontend
+
+== Expiration automatique (Job) ==
+
+note over BookingRepo, DB
+  **BookingScheduler**
+  Exécution toutes les 5 min
+  
+  SELECT * FROM booking
+  WHERE status='PENDING'
+    AND expires_at < NOW()
+  
+  → UPDATE status='EXPIRED'
+end note
+
+@enduml

@@ -1,0 +1,176 @@
+@startuml class_diagram
+
+title Diagramme de Classes - Elec Business
+
+skinparam linetype ortho
+skinparam class {
+    BackgroundColor<<Entity>> LightYellow
+    BackgroundColor<<Service>> LightGreen
+    BackgroundColor<<Enum>> LightCoral
+}
+
+' ==============================================
+' SÉCURITÉ
+' ==============================================
+package "Sécurité" {
+    class User <<Entity>> {
+        - id: String
+        - firstName: String
+        - lastName: String
+        - email: String
+        - password: String
+        - phone: String
+        - userStatus: UserStatus
+        - dateOfBirth: LocalDate
+        --
+        + getAuthorities()
+        + isEnabled(): boolean
+    }
+    
+    enum UserStatus <<Enum>> {
+        PENDING
+        ACTIVE
+        SUSPENDED
+        BANNED
+    }
+    
+    class Role <<Entity>> {
+        - id: String
+        - name: RoleName
+    }
+    
+    enum RoleName <<Enum>> {
+        USER
+        OWNER
+        ADMIN
+    }
+    
+    class UserValidation <<Entity>> {
+        - id: String
+        - confirmationCode: String
+        - validatedAt: Instant
+    }
+}
+
+' ==============================================
+' STATIONS
+' ==============================================
+package "Stations de Recharge" {
+    class ChargingStation <<Entity>> {
+        - id: String
+        - name: String
+        - hourlyPrice: BigDecimal
+        - chargingPowerKw: BigDecimal
+        - chargingPower: String
+        - instruction: String
+        - hasStand: Boolean
+        - available: Boolean
+    }
+    
+    class ChargingLocation <<Entity>> {
+        - id: String
+        - latitude: BigDecimal
+        - longitude: BigDecimal
+        - available: Boolean
+    }
+    
+    class Address <<Entity>> {
+        - id: String
+        - street: String
+        - city: String
+        - postalCode: String
+        - country: String
+    }
+    
+    class Availability <<Entity>> {
+        - id: String
+        - day: LocalDate
+        - startTime: LocalTime
+        - endTime: LocalTime
+    }
+}
+
+' ==============================================
+' RÉSERVATIONS
+' ==============================================
+package "Réservations" {
+    class Booking <<Entity>> {
+        - id: String
+        - startDateTime: LocalDateTime
+        - endDateTime: LocalDateTime
+        - totalAmount: BigDecimal
+        - bookingStatus: BookingStatus
+        - expiresAt: Instant
+    }
+    
+    enum BookingStatus <<Enum>> {
+        PENDING
+        CONFIRMED
+        CANCELLED
+        COMPLETED
+        EXPIRED
+    }
+    
+    class BookingService <<Service>> {
+        + createBooking()
+        + isSlotAvailable()
+        + cancelBooking()
+        + calculateRevenue()
+    }
+}
+
+' ==============================================
+' PAIEMENT
+' ==============================================
+package "Paiement (Simulation)" {
+    class Payment <<Entity>> {
+        - id: String
+        - stripePaymentIntentId: String
+        - paymentStatus: PaymentStatus
+    }
+    
+    enum PaymentStatus <<Enum>> {
+        SUCCEEDED
+        FAILED
+        REFUNDED
+    }
+    
+    class PaymentService <<Service>> {
+        + simulatePayment()
+        + refundPayment()
+    }
+    
+    note right of PaymentService
+      Mode simulation pour MVP
+      (pas d'intégration Stripe réelle)
+    end note
+}
+
+' ==============================================
+' RELATIONS
+' ==============================================
+User "1" --> "*" Role
+User "1" --> "*" ChargingStation
+User "1" --> "*" Booking
+User "1" --> "*" UserValidation
+
+ChargingStation "1" --> "1" ChargingLocation
+ChargingStation "*" --> "*" Availability
+ChargingLocation "1" --> "1" Address
+
+Booking "*" --> "1" ChargingStation
+Booking "*" --> "1" User
+Booking "*" --> "0..1" Payment
+
+User --> UserStatus
+Role --> RoleName
+Booking --> BookingStatus
+Payment --> PaymentStatus
+
+BookingService ..> Booking
+BookingService ..> ChargingStation
+
+PaymentService ..> Payment
+PaymentService ..> Booking
+
+@enduml

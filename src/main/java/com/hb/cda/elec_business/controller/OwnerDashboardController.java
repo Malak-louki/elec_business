@@ -21,7 +21,6 @@ import java.util.List;
 @RequestMapping("/api/owner/dashboard")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")  // Ajouté pour éviter les problèmes CORS
 @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
 public class OwnerDashboardController {
 

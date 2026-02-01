@@ -1,0 +1,143 @@
+@startuml usecase_diagram
+
+title Diagramme de Cas d'Utilisation - Elec Business
+
+left to right direction
+skinparam actorStyle awesome
+
+' ==============================================
+' ACTEURS
+' ==============================================
+actor Utilisateur as User
+actor Propriétaire as Owner
+actor Administrateur as Admin
+
+Owner --|> User
+Admin --|> User
+
+actor "Email Service" as EmailSystem
+actor "Paiement\n(Simulation)" as PaymentSystem
+
+' ==============================================
+' AUTHENTIFICATION
+' ==============================================
+usecase UC01 as "UC01: S'inscrire"
+usecase UC02 as "UC02: Se connecter"
+usecase UC03 as "UC03: Valider email"
+usecase UC04 as "UC04: Renvoyer validation"
+usecase UC05 as "UC05: Consulter profil"
+
+' ==============================================
+' GESTION STATIONS
+' ==============================================
+usecase UC06 as "UC06: Créer station"
+usecase UC07 as "UC07: Modifier station"
+usecase UC08 as "UC08: Supprimer station"
+usecase UC09 as "UC09: Mes stations"
+usecase UC10 as "UC10: Rechercher stations"
+usecase UC11 as "UC11: Activer/Désactiver"
+
+' ==============================================
+' RÉSERVATIONS
+' ==============================================
+usecase UC12 as "UC12: Créer réservation"
+usecase UC13 as "UC13: Mes réservations"
+usecase UC14 as "UC14: Annuler réservation"
+usecase UC15 as "UC15: Vérifier disponibilité"
+usecase UC16 as "UC16: Calculer montant"
+
+' ==============================================
+' PAIEMENT
+' ==============================================
+usecase UC19 as "UC19: Simuler paiement"
+usecase UC20 as "UC20: Confirmer réservation"
+usecase UC21 as "UC21: Échec paiement"
+usecase UC22 as "UC22: Remboursement"
+
+note right of UC19
+  Simulation pour MVP
+  (pas d'API Stripe réelle)
+end note
+
+' ==============================================
+' DASHBOARD PROPRIÉTAIRE
+' ==============================================
+usecase UC23 as "UC23: Statistiques globales"
+usecase UC24 as "UC24: Revenus par période"
+usecase UC25 as "UC25: Réservations stations"
+usecase UC26 as "UC26: Performance station"
+usecase UC27 as "UC27: Top stations"
+
+' ==============================================
+' ADMINISTRATION
+' ==============================================
+usecase UC28 as "UC28: Gérer utilisateurs"
+usecase UC29 as "UC29: Modérer stations"
+usecase UC30 as "UC30: Logs système"
+
+' ==============================================
+' JOBS AUTOMATIQUES
+' ==============================================
+usecase UC31 as "UC31: Expirer PENDING\n(15 min)"
+usecase UC32 as "UC32: Compléter CONFIRMED"
+
+' ==============================================
+' RELATIONS UTILISATEUR
+' ==============================================
+User --> UC01
+User --> UC02
+User --> UC03
+User --> UC04
+User --> UC05
+User --> UC10
+User --> UC12
+User --> UC13
+User --> UC14
+User --> UC19
+
+' ==============================================
+' RELATIONS PROPRIÉTAIRE
+' ==============================================
+Owner --> UC06
+Owner --> UC07
+Owner --> UC08
+Owner --> UC09
+Owner --> UC11
+Owner --> UC23
+Owner --> UC24
+Owner --> UC25
+Owner --> UC26
+Owner --> UC27
+
+' ==============================================
+' RELATIONS ADMIN
+' ==============================================
+Admin --> UC28
+Admin --> UC29
+Admin --> UC30
+
+' ==============================================
+' RELATIONS SYSTÈMES EXTERNES
+' ==============================================
+UC01 .> EmailSystem
+UC03 .> EmailSystem
+UC04 .> EmailSystem
+
+UC19 .> PaymentSystem
+UC22 .> PaymentSystem
+
+' ==============================================
+' RELATIONS INTERNES
+' ==============================================
+UC12 .> UC15 : <<include>>
+UC12 .> UC16 : <<include>>
+
+UC19 .> UC20 : <<include>>
+UC19 .> UC21 : <<include>>
+
+UC14 .> UC22 : <<include>>
+
+UC31 .> UC12
+UC32 .> UC12
+
+@enduml

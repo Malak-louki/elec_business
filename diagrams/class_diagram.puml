@@ -57,14 +57,14 @@ package "Sécurité" {
 ' ==============================================
 package "Stations de Recharge" {
     class ChargingStation <<Entity>> {
-        - id: String
-        - name: String
-        - hourlyPrice: BigDecimal
-        - chargingPowerKw: BigDecimal
-        - chargingPower: String
-        - instruction: String
-        - hasStand: Boolean
-        - available: Boolean
+            - id: String
+            - name: String
+            - hourlyPrice: BigDecimal
+            - chargingPowerKw: BigDecimal
+            - chargingPower: String
+            - instruction: String
+            - hasStand: Boolean
+            - available: Boolean
     }
     
     class ChargingLocation <<Entity>> {
@@ -153,6 +153,7 @@ User "1" --> "*" Role
 User "1" --> "*" ChargingStation
 User "1" --> "*" Booking
 User "1" --> "*" UserValidation
+User "*" --> "0..1" Address
 
 ChargingStation "1" --> "1" ChargingLocation
 ChargingStation "*" --> "*" Availability

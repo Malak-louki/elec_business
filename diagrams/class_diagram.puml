@@ -7,7 +7,25 @@ skinparam class {
     BackgroundColor<<Entity>> LightYellow
     BackgroundColor<<Service>> LightGreen
     BackgroundColor<<Enum>> LightCoral
+    BackgroundColor<<Abstract>> LightBlue
 }
+
+' ==============================================
+' CLASSE ABSTRAITE AUDITABLE
+' ==============================================
+abstract class Auditable <<Abstract>> {
+    - createdAt: Instant
+    - updatedAt: Instant
+}
+
+note right of Auditable
+  Classe abstraite héritée
+  par toutes les entités
+
+  Annotations :
+  @CreatedDate
+  @LastModifiedDate
+end note
 
 ' ==============================================
 ' SÉCURITÉ
@@ -26,25 +44,25 @@ package "Sécurité" {
         + getAuthorities()
         + isEnabled(): boolean
     }
-    
+
     enum UserStatus <<Enum>> {
         PENDING
         ACTIVE
         SUSPENDED
         BANNED
     }
-    
+
     class Role <<Entity>> {
         - id: String
         - name: RoleName
     }
-    
+
     enum RoleName <<Enum>> {
         USER
         OWNER
         ADMIN
     }
-    
+
     class UserValidation <<Entity>> {
         - id: String
         - confirmationCode: String
@@ -57,23 +75,23 @@ package "Sécurité" {
 ' ==============================================
 package "Stations de Recharge" {
     class ChargingStation <<Entity>> {
-            - id: String
-            - name: String
-            - hourlyPrice: BigDecimal
-            - chargingPowerKw: BigDecimal
-            - chargingPower: String
-            - instruction: String
-            - hasStand: Boolean
-            - available: Boolean
+        - id: String
+        - name: String
+        - hourlyPrice: BigDecimal
+        - chargingPowerKw: BigDecimal
+        - chargingPower: String
+        - instruction: String
+        - hasStand: Boolean
+        - available: Boolean
     }
-    
+
     class ChargingLocation <<Entity>> {
         - id: String
         - latitude: BigDecimal
         - longitude: BigDecimal
         - available: Boolean
     }
-    
+
     class Address <<Entity>> {
         - id: String
         - street: String
@@ -81,7 +99,7 @@ package "Stations de Recharge" {
         - postalCode: String
         - country: String
     }
-    
+
     class Availability <<Entity>> {
         - id: String
         - day: LocalDate
@@ -102,7 +120,7 @@ package "Réservations" {
         - bookingStatus: BookingStatus
         - expiresAt: Instant
     }
-    
+
     enum BookingStatus <<Enum>> {
         PENDING
         CONFIRMED
@@ -110,7 +128,7 @@ package "Réservations" {
         COMPLETED
         EXPIRED
     }
-    
+
     class BookingService <<Service>> {
         + createBooking()
         + isSlotAvailable()
@@ -128,23 +146,36 @@ package "Paiement (Simulation)" {
         - stripePaymentIntentId: String
         - paymentStatus: PaymentStatus
     }
-    
+
     enum PaymentStatus <<Enum>> {
         SUCCEEDED
         FAILED
         REFUNDED
     }
-    
+
     class PaymentService <<Service>> {
         + simulatePayment()
         + refundPayment()
     }
-    
+
     note right of PaymentService
       Mode simulation pour MVP
       (pas d'intégration Stripe réelle)
     end note
 }
+
+' ==============================================
+' HÉRITAGE AUDITABLE
+' ==============================================
+User --|> Auditable
+Role --|> Auditable
+UserValidation --|> Auditable
+ChargingStation --|> Auditable
+ChargingLocation --|> Auditable
+Address --|> Auditable
+Availability --|> Auditable
+Booking --|> Auditable
+Payment --|> Auditable
 
 ' ==============================================
 ' RELATIONS

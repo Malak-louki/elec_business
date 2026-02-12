@@ -52,7 +52,7 @@ cloud "**Render PaaS**\n(Backend Hosting)" {
 ' SERVICES EXTERNES
 ' ==============================================
 cloud "Services Externes" {
-    component "**Mailtrap**\n(Email SMTP)" as SMTP
+    component "**Gmail**\n(Email SMTP)" as SMTP
 }
 
 ' ==============================================
@@ -89,8 +89,6 @@ note bottom of SpringBoot
 end note
 
 note bottom of PostgreSQL
-  **Migration Flyway**
-  Activée en production
 
   **Dialecte Hibernate**
   org.hibernate.dialect.PostgreSQLDialect

@@ -30,10 +30,8 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class BookingServiceImplTest {
-
     @Mock
     private BookingRepository bookingRepository;
-
     @Mock
     private ChargingStationRepository stationRepository;
 
@@ -42,7 +40,6 @@ public class BookingServiceImplTest {
 
     private User testUser;
     private ChargingStation testStation;
-
     @BeforeEach
     void setUp() {
         testUser = new User();
@@ -55,11 +52,9 @@ public class BookingServiceImplTest {
         testStation.setHourlyPrice(new BigDecimal("5.00"));
         testStation.setAvailable(true);
     }
-
     // ================================================================
     // TEST 1 : DÉTECTION DE CONFLIT
     // ================================================================
-
     @Test
     @DisplayName("TEST 1 : Doit lever BookingConflictException si créneau déjà pris")
     void createBooking_shouldThrowConflictException_whenSlotAlreadyBooked() {

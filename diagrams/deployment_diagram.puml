@@ -1,15 +1,9 @@
-@startuml deployment_diagram
+@startuml deployment_diagram_production
 
-title Diagramme de Déploiement - Elec Business (Production)
+title Diagramme de Déploiement - Elec Business (PRODUCTION)
 
-skinparam node {
-    BackgroundColor LightBlue
-    BorderColor DarkBlue
-}
-
-skinparam component {
-    BackgroundColor LightYellow
-    BorderColor DarkGoldenRod
+skinparam cloud {
+    BackgroundColor LightSkyBlue
 }
 
 ' ==============================================
@@ -17,104 +11,87 @@ skinparam component {
 ' ==============================================
 cloud "Internet" {
     actor "Navigateur" as Browser
-    actor "Email\n(SMTP)" as SMTP
 }
 
 ' ==============================================
-' SERVEUR PRODUCTION
+' VERCEL CDN
 ' ==============================================
-node "**Serveur Production**\n(Docker Host)" {
-    
-    frame "Docker Network" {
-        
-        ' NGINX
-        component "**Nginx**\n(Reverse Proxy)" as Nginx {
-            artifact "Angular\n(Static)" as Angular
-        }
-        
-        note right of Nginx
-          Port 443 (HTTPS)
-          TLS/SSL
-          
-          Routes:
-          / → Angular
-          /api → Spring Boot
-        end note
-        
-        ' SPRING BOOT
-        component "**Spring Boot**\n(API REST)" as SpringBoot {
-            artifact "elec-business.jar" as Jar
-        }
-        
-        note right of SpringBoot
-          Port interne: 8080
-          
-          Endpoints:
-          /api/auth
-          /api/bookings
-          /api/payments
-          /api/owner/dashboard
-        end note
-        
-        ' MYSQL
-        database "**MySQL 8.0**\n(BDD)" as MySQL {
-            storage "Volume\nmysql_data" as Volume
-        }
-        
-        note right of MySQL
-          Port interne: 3306
-          
-          Accès sécurisé
-          (pas d'exposition publique)
+cloud "**Vercel CDN**\n(Frontend Hosting)" {
+    artifact "**Angular 18.2**\n(Static Build)" as Angular {
+        note right
+          URL : https://elec-business-front.vercel.app
+
+          Déploiement automatique
+          depuis GitHub (main branch)
         end note
     }
 }
 
 ' ==============================================
-' CONFIGURATION
+' RENDER PAAS
 ' ==============================================
-artifact "Variables\nd'environnement" as EnvVars
-artifact "Certificats\nTLS" as TLS
+cloud "**Render PaaS**\n(Backend Hosting)" {
+    component "**Spring Boot 3.5.6**\n(JAR Executable)" as SpringBoot {
+        note right
+          URL : https://elec-business-back.onrender.com
 
-note right of EnvVars
-  JWT_SECRET
-  DB_USER / DB_PASSWORD
-  MAIL_USERNAME / MAIL_PASSWORD
-  CORS_ORIGINS
-end note
+          Port : 8080
+          Healthcheck : /actuator/health
+        end note
+    }
 
-note right of TLS
-  Let's Encrypt
-  Renouvellement automatique
-end note
+    database "**PostgreSQL 16**\n(Managed Database)" as PostgreSQL {
+        note right
+          Sauvegarde automatique
+          Connexion via DATABASE_URL
+        end note
+    }
+}
+
+' ==============================================
+' SERVICES EXTERNES
+' ==============================================
+cloud "Services Externes" {
+    component "**Gmail**\n(Email SMTP)" as SMTP
+}
 
 ' ==============================================
 ' FLUX
 ' ==============================================
-Browser --> Nginx : HTTPS :443
-Nginx --> SpringBoot : HTTP :8080
-SpringBoot --> MySQL : MySQL :3306
-SpringBoot --> SMTP : SMTP
-EnvVars .> SpringBoot
-TLS .> Nginx
+Browser --> Angular : HTTPS :443\n(Vercel CDN)
+Angular --> SpringBoot : REST API :443\n(CORS configuré)
+SpringBoot --> PostgreSQL : JDBC :5432
+SpringBoot --> SMTP : SMTP :2525
+
+' ==============================================
+' CONFIGURATION
+' ==============================================
+artifact "Variables d'environnement\n(Render Dashboard)" as EnvVars
+
+note right of EnvVars
+  JWT_SECRET
+  DATABASE_URL (PostgreSQL)
+  MAIL_USERNAME / MAIL_PASSWORD
+  CORS_ORIGINS=https://elec-business-front.vercel.app
+end note
+
+EnvVars .> SpringBoot : Configuration
 
 ' ==============================================
 ' NOTES TECHNIQUES
 ' ==============================================
 note bottom of SpringBoot
-  **Docker Compose**
-  restart: unless-stopped
-  
-  Healthcheck:
-  curl /actuator/health
+  **Build Maven**
+  mvn clean install -DskipTests
+
+  **Démarrage automatique**
+  java -jar target/elec_business.jar
 end note
 
-note bottom of MySQL
-  **Sauvegarde**
-  Volume Docker persistant
-  
-  Healthcheck:
-  mysqladmin ping
+note bottom of PostgreSQL
+
+  **Dialecte Hibernate**
+  org.hibernate.dialect.PostgreSQLDialect
 end note
 
 @enduml

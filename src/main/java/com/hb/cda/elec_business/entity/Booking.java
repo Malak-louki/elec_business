@@ -48,12 +48,6 @@ public class Booking extends Auditable {
     private BookingStatus bookingStatus;
 
     /**
-     * Chemin vers la facture PDF générée
-     */
-    @Column(name = "invoice_path", length = 512)
-    private String invoicePath;
-
-    /**
      * Date limite pour effectuer le paiement
      * Calculé à la création : now + timeout (15 min par défaut)
      * Si dépassé → statut passe à EXPIRED automatiquement
@@ -81,6 +75,12 @@ public class Booking extends Auditable {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "charging_station_id", nullable = false)
     private ChargingStation chargingStation;
+
+    /**
+     * Chemin vers la facture PDF générée
+     */
+    @Column(name = "invoice_path", length = 512)
+    private String invoicePath;
 
     // Constructeurs
     public Booking() {

@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class EmailServiceImpl {
 
-    @Value("${brevo.api.key}")
+    @Value("${brevo.api.key:fake-key-for-tests}")
     private String brevoApiKey;
 
     @Value("${spring.mail.username:noreply@elecbusiness.com}")

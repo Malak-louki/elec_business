@@ -1,61 +1,120 @@
 package com.hb.cda.elec_business.service.impl;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.*;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class EmailServiceImpl {
 
-    private final JavaMailSender mailSender;
+    @Value("${brevo.api.key:fake-key-for-tests}")
+    private String brevoApiKey;
 
-    @Value("${spring.mail.username}")
+    @Value("${spring.mail.username:noreply@elecbusiness.com}")
     private String fromEmail;
 
     @Value("${app.base-url}")
     private String baseUrl;
 
-    /**
-     * Envoie un email de validation de manière asynchrone
-     * @param to Email du destinataire
-     * @param username Nom de l'utilisateur
-     * @param confirmationCode Code de confirmation unique
-     */
+    private final OkHttpClient httpClient = new OkHttpClient();
+
     @Async
     public void sendValidationEmail(String to, String username, String confirmationCode) {
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setFrom(fromEmail);
-            helper.setTo(to);
-            helper.setSubject("Activez votre compte ElecBusiness");
+            log.info("🔵 Envoi email via Brevo API à: {}", to);
 
             String validationLink = baseUrl + "/api/auth/validate?code=" + confirmationCode;
-
             String htmlContent = buildEmailContent(username, validationLink);
-            helper.setText(htmlContent, true);
 
-            mailSender.send(message);
-            log.info("Email de validation envoyé avec succès à {}", to);
+            String jsonBody = String.format("""
+                {
+                  "sender": {"email": "%s", "name": "ElecBusiness"},
+                  "to": [{"email": "%s", "name": "%s"}],
+                  "subject": "Activez votre compte ElecBusiness",
+                  "htmlContent": %s
+                }
+                """,
+                    fromEmail,
+                    to,
+                    username,
+                    escapeJson(htmlContent)
+            );
 
-        } catch (MessagingException e) {
-            log.error("Erreur lors de l'envoi de l'email de validation à {}: {}", to, e.getMessage());
+            Request request = new Request.Builder()
+                    .url("https://api.brevo.com/v3/smtp/email")
+                    .addHeader("api-key", brevoApiKey)
+                    .addHeader("Content-Type", "application/json")
+                    .post(RequestBody.create(jsonBody, MediaType.parse("application/json")))
+                    .build();
+
+            try (Response response = httpClient.newCall(request).execute()) {
+                if (response.isSuccessful()) {
+                    log.info("✅ Email de validation envoyé avec succès à {}", to);
+                } else {
+                    log.error("❌ Erreur Brevo API: {} - {}", response.code(), response.body().string());
+                    throw new RuntimeException("Échec envoi email: " + response.code());
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("❌ Erreur lors de l'envoi de l'email: {}", e.getMessage());
             throw new RuntimeException("Échec de l'envoi de l'email de validation", e);
         }
     }
 
-    /**
-     * Construit le contenu HTML de l'email
-     */
+    @Async
+    public void sendAccountActivatedEmail(String to, String username) {
+        try {
+            String htmlContent = String.format("""
+                <!DOCTYPE html>
+                <html>
+                <body style="font-family: Arial, sans-serif;">
+                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h2 style="color: #4CAF50;">Compte activé avec succès !</h2>
+                        <p>Bonjour %s,</p>
+                        <p>Votre compte ElecBusiness est maintenant actif.</p>
+                        <p>Vous pouvez dès maintenant vous connecter et profiter de nos services.</p>
+                        <p>À bientôt sur notre plateforme !</p>
+                    </div>
+                </body>
+                </html>
+                """, username);
+
+            String jsonBody = String.format("""
+                {
+                  "sender": {"email": "%s", "name": "ElecBusiness"},
+                  "to": [{"email": "%s", "name": "%s"}],
+                  "subject": "Votre compte ElecBusiness est activé !",
+                  "htmlContent": %s
+                }
+                """,
+                    fromEmail,
+                    to,
+                    username,
+                    escapeJson(htmlContent)
+            );
+
+            Request request = new Request.Builder()
+                    .url("https://api.brevo.com/v3/smtp/email")
+                    .addHeader("api-key", brevoApiKey)
+                    .addHeader("Content-Type", "application/json")
+                    .post(RequestBody.create(jsonBody, MediaType.parse("application/json")))
+                    .build();
+
+            try (Response response = httpClient.newCall(request).execute()) {
+                if (response.isSuccessful()) {
+                    log.info("✅ Email de confirmation envoyé à {}", to);
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("❌ Erreur confirmation email: {}", e.getMessage());
+        }
+    }
+
     private String buildEmailContent(String username, String validationLink) {
         return """
             <!DOCTYPE html>
@@ -98,40 +157,12 @@ public class EmailServiceImpl {
             """.formatted(username, validationLink, validationLink);
     }
 
-    /**
-     * Envoie un email de confirmation après validation
-     */
-    @Async
-    public void sendAccountActivatedEmail(String to, String username) {
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setFrom(fromEmail);
-            helper.setTo(to);
-            helper.setSubject("Votre compte ElecBusiness est activé !");
-
-            String htmlContent = """
-                <!DOCTYPE html>
-                <html>
-                <body style="font-family: Arial, sans-serif;">
-                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                        <h2 style="color: #4CAF50;">Compte activé avec succès !</h2>
-                        <p>Bonjour %s,</p>
-                        <p>Votre compte ElecBusiness est maintenant actif.</p>
-                        <p>Vous pouvez dès maintenant vous connecter et profiter de nos services.</p>
-                        <p>À bientôt sur notre plateforme !</p>
-                    </div>
-                </body>
-                </html>
-                """.formatted(username);
-
-            helper.setText(htmlContent, true);
-            mailSender.send(message);
-            log.info("Email de confirmation d'activation envoyé à {}", to);
-
-        } catch (MessagingException e) {
-            log.error("Erreur lors de l'envoi de l'email de confirmation à {}: {}", to, e.getMessage());
-        }
+    private String escapeJson(String html) {
+        return "\"" + html
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t") + "\"";
     }
 }

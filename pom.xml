@@ -102,6 +102,12 @@
             <scope>runtime</scope>
             <optional>true</optional>
         </dependency>
+        <!-- Brevo API Client -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.12.0</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-docker-compose</artifactId>

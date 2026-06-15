@@ -1,9 +1,10 @@
-@startuml Architecture_Layered_ElecBusiness
+@startuml Architecture_Layered_ElecBusiness_With_DTOs
 
-title Architecture en Couches - Elec Business
+title Architecture en Couches - Elec Business (avec DTOs)
 
 skinparam rectangle {
     BackgroundColor<<presentation>> #E8F4F8
+    BackgroundColor<<dto>> #F0E68C
     BackgroundColor<<application>> #D4F1D4
     BackgroundColor<<domain>> #FFE6E6
     BackgroundColor<<infrastructure>> #FFE6CC
@@ -29,6 +30,45 @@ package "**PRESENTATION LAYER**\n(Controllers REST)" <<presentation>> {
 }
 
 ' ==============================================
+' DTO LAYER
+' ==============================================
+package "**DTO LAYER**\n(Data Transfer Objects)" <<dto>> {
+    package "auth" {
+        rectangle "LoginRequestDto\nRegistrationRequestDto" as AuthRequestDto
+        rectangle "AuthResponseDto\nUserResponseDto" as AuthResponseDto
+    }
+
+    package "charging" {
+        rectangle "ChargingStationRequestDto\nAddressDto\nLocationDto" as StationRequestDto
+        rectangle "ChargingStationResponseDto\nAvailabilityDto" as StationResponseDto
+    }
+
+    package "booking" {
+        rectangle "BookingRequestDto" as BookingRequestDto
+        rectangle "BookingResponseDto" as BookingResponseDto
+    }
+
+    package "payment" {
+        rectangle "PaymentRequestDto" as PaymentRequestDto
+        rectangle "PaymentResponseDto" as PaymentResponseDto
+    }
+
+    package "dashboard" {
+        rectangle "OwnerDashboardStatsDto\nRevenueAnalyticsDto\nStationPerformanceDto" as DashboardDto
+    }
+
+    package "user" {
+        rectangle "UpgradeResponseDto" as UserDto
+    }
+
+    note right of AuthRequestDto
+        Les DTOs découplent
+        la couche présentation
+        du domaine métier
+    end note
+}
+
+' ==============================================
 ' APPLICATION LAYER
 ' ==============================================
 package "**APPLICATION LAYER**\n(Services Métier)" <<application>> {
@@ -38,7 +78,7 @@ package "**APPLICATION LAYER**\n(Services Métier)" <<application>> {
     rectangle "BookingService" as BookingService
     rectangle "PaymentService\n(Simulation)" as PaymentService #FFCCCC
     rectangle "OwnerDashboardService" as DashboardService
-    
+
     note right of PaymentService
         Mode simulation
         pour MVP
@@ -64,44 +104,82 @@ package "**INFRASTRUCTURE LAYER**\n(Persistence + Sécurité)" <<infrastructure>
     rectangle "Repositories\n(Spring Data JPA)" as Repositories
     rectangle "Security\n(JWT + Filters)" as Security
     rectangle "BookingScheduler\n(@Scheduled)" as Scheduler
-    rectangle "Email Service\n(@Async)" as Email
+    rectangle "Email Service\n(Brevo API)" as Email
 }
 
 ' ==============================================
 ' BASE DE DONNÉES
 ' ==============================================
-database "MySQL 8.0" as MySQL
+database "MySQL 8.0\n(Dev/Prod)" as MySQL
 
 ' ==============================================
-' RELATIONS
+' RELATIONS PRESENTATION -> DTO
 ' ==============================================
-AuthCtrl --> AuthService
-StationCtrl --> StationService
-BookingCtrl --> BookingService
-PaymentCtrl --> PaymentService
-DashboardCtrl --> DashboardService
+AuthCtrl --> AuthRequestDto
+AuthCtrl --> AuthResponseDto
+StationCtrl --> StationRequestDto
+StationCtrl --> StationResponseDto
+BookingCtrl --> BookingRequestDto
+BookingCtrl --> BookingResponseDto
+PaymentCtrl --> PaymentRequestDto
+PaymentCtrl --> PaymentResponseDto
+DashboardCtrl --> DashboardDto
 
+' ==============================================
+' RELATIONS DTO -> APPLICATION
+' ==============================================
+AuthRequestDto --> AuthService
+AuthResponseDto --> AuthService
+StationRequestDto --> StationService
+StationResponseDto --> StationService
+BookingRequestDto --> BookingService
+BookingResponseDto --> BookingService
+PaymentRequestDto --> PaymentService
+PaymentResponseDto --> PaymentService
+DashboardDto --> DashboardService
+
+' ==============================================
+' RELATIONS APPLICATION -> APPLICATION
+' ==============================================
 AuthService --> ValidationService
 AuthService --> Email
 BookingService --> PaymentService
 
+' ==============================================
+' RELATIONS APPLICATION -> DOMAIN
+' ==============================================
 AuthService --> UserEntity
+AuthService --> ValidationEntity
 StationService --> StationEntity
 BookingService --> BookingEntity
 PaymentService --> PaymentEntity
+DashboardService --> StationEntity
+DashboardService --> BookingEntity
 
+' ==============================================
+' RELATIONS APPLICATION -> INFRASTRUCTURE
+' ==============================================
 AuthService --> Repositories
 StationService --> Repositories
 BookingService --> Repositories
 PaymentService --> Repositories
 DashboardService --> Repositories
+ValidationService --> Repositories
 
+' ==============================================
+' RELATIONS INFRASTRUCTURE -> DOMAIN
+' ==============================================
 Repositories --> UserEntity
 Repositories --> StationEntity
 Repositories --> BookingEntity
 Repositories --> PaymentEntity
+Repositories --> ValidationEntity
 
+' ==============================================
+' RELATIONS INFRASTRUCTURE -> DATABASE
+' ==============================================
 Repositories --> MySQL
 Scheduler --> Repositories
+Security ..> Repositories
 
 @enduml

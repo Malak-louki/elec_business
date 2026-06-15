@@ -25,15 +25,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/**
- * TEST D'INTÉGRATION 1 : Flux complet de création de réservation
- *
- * Ce test valide le parcours complet :
- * Controller → Service → Repository → Base de données H2
- *
- * Objectif CDA : Démontrer la maîtrise des tests d'intégration
- * couvrant plusieurs couches applicatives.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -83,7 +74,6 @@ class BookingIntegrationTest {
         addressRepository.deleteAll();
         userRepository.deleteAll();
 
-        // ========== CRÉATION DU RÔLE USER ==========
         Role userRole = roleRepository.findByName(RoleName.USER)
                 .orElseGet(() -> {
                     Role role = new Role();
@@ -91,7 +81,6 @@ class BookingIntegrationTest {
                     return roleRepository.save(role);
                 });
 
-        // ========== CRÉATION D'UN UTILISATEUR ACTIVÉ ==========
         testUser = new User();
         testUser.setEmail("client@test.com");
         testUser.setFirstName("Jean");
@@ -101,10 +90,8 @@ class BookingIntegrationTest {
         testUser.setRoles(Set.of(userRole));
         testUser = userRepository.save(testUser);
 
-        // Génération du token JWT
         validToken = jwtService.generateAccessToken(testUser);
 
-        // ========== CRÉATION D'UNE ADRESSE ==========
         Address address = new Address();
         address.setStreet("Rue de la Paix");
         address.setNumber("10");
@@ -113,7 +100,6 @@ class BookingIntegrationTest {
         address.setCountry("France");
         address = addressRepository.save(address);
 
-        // ========== CRÉATION D'UNE CHARGING LOCATION ==========
         ChargingLocation location = new ChargingLocation();
         location.setLatitude(new BigDecimal("48.8566"));
         location.setLongitude(new BigDecimal("2.3522"));
@@ -121,7 +107,6 @@ class BookingIntegrationTest {
         location.setAddress(address);
         location = locationRepository.save(location);
 
-        // ========== CRÉATION D'UNE STATION DE RECHARGE ==========
         testStation = new ChargingStation();
         testStation.setName("Borne Test Paris");
         testStation.setHourlyPrice(new BigDecimal("5.00"));
@@ -137,11 +122,10 @@ class BookingIntegrationTest {
     @Test
     @DisplayName("TEST INTÉGRATION 1 : Création réussie d'une réservation - Flux complet")
     void shouldCreateBookingSuccessfully_fullFlow() throws Exception {
-        // ========== GIVEN ==========
-        // Créneau disponible dans 2 jours, durée 3 heures
+        // GIVEN
         LocalDateTime start = LocalDateTime.now().plusDays(2)
                 .withHour(14).withMinute(0).withSecond(0).withNano(0);
-        LocalDateTime end = start.plusHours(3); // 3h × 5€ = 15€
+        LocalDateTime end = start.plusHours(3);
 
         BookingRequestDto request = BookingRequestDto.builder()
                 .chargingStationId(testStation.getId())
@@ -151,13 +135,12 @@ class BookingIntegrationTest {
 
         String requestJson = objectMapper.writeValueAsString(request);
 
-        // ========== WHEN ==========
-        // Appel HTTP POST vers /api/bookings
+        // WHEN
         mockMvc.perform(post("/api/bookings")
                         .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", "Bearer " + validToken)
                         .content(requestJson))
-                // ========== THEN - Vérification HTTP ==========
+                // THEN - Vérification HTTP
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.bookingStatus").value("PENDING"))
@@ -165,7 +148,7 @@ class BookingIntegrationTest {
                 .andExpect(jsonPath("$.startDateTime").exists())
                 .andExpect(jsonPath("$.endDateTime").exists());
 
-        // ========== THEN - Vérification en base de données ==========
+        // THEN - Vérification en base de données
         assertThat(bookingRepository.count()).isEqualTo(1);
 
         Booking savedBooking = bookingRepository.findAll().get(0);
@@ -173,7 +156,7 @@ class BookingIntegrationTest {
         assertThat(savedBooking.getUser().getId()).isEqualTo(testUser.getId());
         assertThat(savedBooking.getBookingStatus()).isEqualTo(BookingStatus.PENDING);
         assertThat(savedBooking.getTotalAmount()).isEqualByComparingTo(new BigDecimal("15.00"));
-        assertThat(savedBooking.getExpiresAt()).isNotNull(); // Expire dans 15 minutes
+        assertThat(savedBooking.getExpiresAt()).isNotNull();
     }
 
     @Test

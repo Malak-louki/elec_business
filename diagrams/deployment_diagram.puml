@@ -52,7 +52,7 @@ cloud "**Render PaaS**\n(Backend Hosting)" {
 ' SERVICES EXTERNES
 ' ==============================================
 cloud "Services Externes" {
-    component "**Gmail**\n(Email SMTP)" as SMTP
+    component "**Brevo**\n(Email SMTP)" as SMTP
 }
 
 ' ==============================================

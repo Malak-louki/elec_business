@@ -25,40 +25,17 @@ import java.util.function.Function;
 @Slf4j
 public class JwtService {
 
-    /**
-     * Clé secrète (Base64) utilisée pour signer les JWT.
-     * Configurée dans application.properties : app.jwt.secret.key
-     */
     @Value("${app.jwt.secret.key}")
     private String secretKey;
 
-    /**
-     * Durée de vie de l'access token en millisecondes.
-     * Configurée dans application.properties : app.jwt.access.expiration
-     */
     @Getter
     @Value("${app.jwt.access.expiration}")
     private long jwtExpiration;
 
-    // ======================================================================
-    // 1. GÉNÉRATION DE TOKEN
-    // ======================================================================
-
-    /**
-     * Génère un access token (JWT) pour un utilisateur.
-     * Pour l’instant on ne met que le subject (email) + dates.
-     */
     public String generateAccessToken(UserDetails userDetails) {
         return generateToken(userDetails, jwtExpiration, new HashMap<>());
     }
 
-    /**
-     * Méthode générique qui génère un JWT.
-     *
-     * @param userDetails    infos de sécurité (username = email chez toi)
-     * @param expirationInMs durée de vie en millisecondes
-     * @param extraClaims    claims supplémentaires (ex: roles) – optionnel
-     */
     public String generateToken(
             UserDetails userDetails,
             long expirationInMs,
@@ -70,23 +47,13 @@ public class JwtService {
         return Jwts
                 .builder()
                 .setClaims(extraClaims)
-                .setSubject(userDetails.getUsername())      // subject = email
+                .setSubject(userDetails.getUsername())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    // ======================================================================
-    // 2. VALIDATION DU TOKEN
-    // ======================================================================
-
-    /**
-     * Vérifie que :
-     *  - le token n’est pas vide
-     *  - le subject (email) correspond au user
-     *  - le token n’est pas expiré
-     */
     public boolean isTokenValid(String token, UserDetails userDetails) {
         if (token == null || token.isBlank()) {
             throw new ValidationException("Token is missing or empty");
@@ -98,10 +65,6 @@ public class JwtService {
     private boolean isTokenExpired(String token) {
         return extractExpiration(token).before(new Date());
     }
-
-    // ======================================================================
-    // 3. EXTRACTION DE CLAIMS
-    // ======================================================================
 
     public String extractUsernameFromToken(String token) {
         if (token == null || token.isBlank()) {
@@ -133,9 +96,6 @@ public class JwtService {
         }
     }
 
-    // ======================================================================
-    // 4. CLÉ DE SIGNATURE
-    // ======================================================================
 
     private Key getSignInKey() {
         // secretKey est en Base64 → on la décode

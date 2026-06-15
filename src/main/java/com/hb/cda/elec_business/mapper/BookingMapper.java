@@ -15,12 +15,9 @@ import java.util.stream.Collectors;
 public class BookingMapper {
 
     private BookingMapper() {
-        // Classe utilitaire, pas d'instanciation
+
     }
 
-    /**
-     * Convertit une entité Booking en DTO complet
-     */
     public static BookingResponseDto toResponseDto(Booking booking) {
         if (booking == null) {
             return null;
@@ -40,9 +37,6 @@ public class BookingMapper {
                 .build();
     }
 
-    /**
-     * Convertit une liste de Bookings en liste de DTOs
-     */
     public static List<BookingResponseDto> toResponseDtoList(List<Booking> bookings) {
         if (bookings == null) {
             return List.of();
@@ -52,9 +46,6 @@ public class BookingMapper {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Mappe les informations essentielles d'une ChargingStation
-     */
     private static BookingResponseDto.ChargingStationSummaryDto mapChargingStationSummary(ChargingStation station) {
         if (station == null) {
             return null;
@@ -80,9 +71,6 @@ public class BookingMapper {
                 .build();
     }
 
-    /**
-     * Mappe les informations essentielles d'un User
-     */
     private static BookingResponseDto.UserSummaryDto mapUserSummary(User user) {
         if (user == null) {
             return null;
@@ -97,9 +85,6 @@ public class BookingMapper {
                 .build();
     }
 
-    /**
-     * Mappe les informations essentielles d'un Payment
-     */
     private static BookingResponseDto.PaymentSummaryDto mapPaymentSummary(Payment payment) {
         if (payment == null) {
             return null;

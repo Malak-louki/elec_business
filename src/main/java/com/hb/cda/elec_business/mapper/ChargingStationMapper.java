@@ -9,11 +9,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class ChargingStationMapper {
+public class
 
-    /**
-     * Convertit une entité ChargingStation en DTO Response
-     */
+ChargingStationMapper {
+
     public static ChargingStationResponseDto toResponseDto(ChargingStation station) {
         if (station == null) {
             log.warn("Tentative de conversion d'une station null");
@@ -25,8 +24,8 @@ public class ChargingStationMapper {
                     .id(station.getId())
                     .name(station.getName())
                     .hourlyPrice(station.getHourlyPrice())
-                    .chargingPowerKw(station.getChargingPowerKw())  // Numérique
-                    .chargingPower(station.getChargingPower())      // Avec unité
+                    .chargingPowerKw(station.getChargingPowerKw())
+                    .chargingPower(station.getChargingPower())
                     .instruction(station.getInstruction())
                     .hasStand(station.getHasStand())
                     .mediaUrl(station.getMedia())
@@ -34,14 +33,12 @@ public class ChargingStationMapper {
                     .createdAt(station.getCreatedAt())
                     .updatedAt(station.getUpdatedAt());
 
-            // Gestion sécurisée du propriétaire
             if (station.getUser() != null) {
                 builder.owner(toOwnerInfoDto(station.getUser()));
             } else {
                 log.warn("Station {} n'a pas de propriétaire", station.getId());
             }
 
-            // Gestion sécurisée de la location et de l'adresse
             if (station.getChargingLocation() != null) {
                 builder.location(toLocationDto(station.getChargingLocation()));
 
@@ -54,7 +51,6 @@ public class ChargingStationMapper {
                 log.warn("Station {} n'a pas de ChargingLocation", station.getId());
             }
 
-            // Gestion sécurisée des disponibilités
             if (station.getAvailabilities() != null) {
                 builder.availabilities(toAvailabilityDtoList(station.getAvailabilities()));
             } else {

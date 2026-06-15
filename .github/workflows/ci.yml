@@ -1,38 +1,21 @@
-# ==========================================================
-# 🔧 GitHub Actions CI Workflow – Elec Business
-# Objectif :
-#   1. Démarrer un service MySQL (éphemère)
-#   2. Lancer Flyway + build + tests
-#   3. Générer le JAR et le publier comme artefact
-# ==========================================================
-
 name: CI
-
 on:
   push:
     branches: [ "main", "develop" ]
   pull_request:
     branches: [ "main", "develop" ]
-  workflow_dispatch: # Permet de lancer manuellement
+  workflow_dispatch:
 
 jobs:
   build-test:
-    runs-on: ubuntu-latest  # Exécute la CI sur une VM Linux propre
-
-    # ------------------------
-    # Variables d’environnement utilisées par Spring
-    # ------------------------
+    runs-on: ubuntu-latest
     env:
-      SPRING_DOCKER_COMPOSE_ENABLED: "false"   # Désactive le docker compose intégré de Spring Boot
-      SPRING_PROFILES_ACTIVE: ci               # Active le profil application-ci.properties
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+      SPRING_PROFILES_ACTIVE: ci
       DB_NAME: elec_business
       DB_USER: ci_user
       DB_PASSWORD: ci_pwd
       DB_PORT: "3306"
-
-    # ------------------------
-    # Démarrage du service MySQL pour les tests
-    # ------------------------
     services:
       mysql:
         image: mysql:8.0.43
@@ -44,7 +27,7 @@ jobs:
           MYSQL_PASSWORD: ci_pwd
           MYSQL_ROOT_PASSWORD: rootpwd
           TZ: Europe/Paris
-        # Healthcheck = s'assure que MySQL est prêt avant le build
+
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"
           --health-interval=10s
@@ -52,11 +35,9 @@ jobs:
           --health-retries=12
 
     steps:
-      # 1 Récupération du code source
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2 Installation de Java 21 (avec cache Maven)
       - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
@@ -64,7 +45,6 @@ jobs:
           java-version: "21"
           cache: maven
 
-      # 3 Attente active que MySQL soit prêt avant de lancer Maven
       - name: Wait for MySQL (extra safety)
         run: |
           for i in {1..30}; do
@@ -72,19 +52,15 @@ jobs:
             echo "⏳ MySQL not ready yet..."; sleep 2
           done
 
-      # 4 Correction du droit d'exécution sur le wrapper Maven (important pour Ubuntu)
       - name: Grant execute permission for Maven Wrapper
         run: chmod +x mvnw
 
-      # 5 Compilation + tests (unitaires + d’intégration)
       - name: Build & test (unit + integ)
         run: ./mvnw -q -DskipITs=false clean verify
 
-      # 6 Package du JAR sans relancer les tests (gain de temps)
       - name: Package (skip tests)
         run: ./mvnw -q -DskipTests package
 
-      # 7 Upload du JAR compilé comme artefact téléchargeable
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:

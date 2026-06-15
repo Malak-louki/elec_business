@@ -24,10 +24,6 @@ public class ChargingStationController {
 
     private final ChargingStationService stationService;
 
-    /**
-     * Créer une nouvelle charging station
-     * Accessible aux utilisateurs authentifiés (le rôle OWNER sera auto-attribué)
-     */
     @PostMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ChargingStationResponseDto> createStation(
@@ -41,10 +37,6 @@ public class ChargingStationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    /**
-     * Modifier une charging station existante
-     * Seul le propriétaire peut modifier sa borne
-     */
     @PutMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ChargingStationResponseDto> updateStation(
@@ -59,10 +51,6 @@ public class ChargingStationController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Supprimer une charging station
-     * Seul le propriétaire peut supprimer sa borne
-     */
     @DeleteMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Void> deleteStation(
@@ -76,10 +64,6 @@ public class ChargingStationController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Récupérer les détails d'une charging station
-     * Endpoint public (pas de JWT requis)
-     */
     @GetMapping("/{id}")
     public ResponseEntity<ChargingStationResponseDto> getStationById(@PathVariable String id) {
         log.info("Getting station details for ID: {}", id);
@@ -87,10 +71,6 @@ public class ChargingStationController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Récupérer toutes mes charging stations (en tant que propriétaire)
-     * Nécessite d'être authentifié
-     */
     @GetMapping("/mine")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<ChargingStationResponseDto>> getMyStations(Authentication authentication) {
@@ -101,10 +81,6 @@ public class ChargingStationController {
         return ResponseEntity.ok(stations);
     }
 
-    /**
-     * Récupérer toutes les charging stations disponibles
-     * Endpoint public (pas de JWT requis)
-     */
     @GetMapping
     public ResponseEntity<List<ChargingStationResponseDto>> getAllAvailableStations() {
         log.info("Getting all available charging stations");
@@ -112,10 +88,6 @@ public class ChargingStationController {
         return ResponseEntity.ok(stations);
     }
 
-    /**
-     * Rechercher des charging stations par ville
-     * Endpoint public (pas de JWT requis)
-     */
     @GetMapping("/city/{city}")
     public ResponseEntity<List<ChargingStationResponseDto>> getStationsByCity(@PathVariable String city) {
         log.info("Searching stations in city: {}", city);
@@ -123,11 +95,6 @@ public class ChargingStationController {
         return ResponseEntity.ok(stations);
     }
 
-    /**
-     * Recherche avancée de charging stations avec filtres
-     * Endpoint public (pas de JWT requis)
-     * CORRIGÉ : utilise minPowerKw (BigDecimal) au lieu de minPower (String)
-     */
     @GetMapping("/search")
     public ResponseEntity<List<ChargingStationResponseDto>> searchStations(
             @RequestParam(required = false) String city,

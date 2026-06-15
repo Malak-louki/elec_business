@@ -3,11 +3,11 @@
 --  Objectif : injecter les rôles de base pour l’authentification
 --             (USER / OWNER / ADMIN) dès l’init du schéma.
 --  Auteur : Malak
---  Date   : 2025-11
+--  Date   : 2026-06
 -- =============================================================
 
-INSERT INTO role (id, name)
+INSERT IGNORE INTO role (id, name)
 VALUES
-    (UUID(), 'USER'),
-    (UUID(), 'OWNER'),
-    (UUID(), 'ADMIN');
+    (REPLACE(UUID(),'-',''), 'USER'),
+    (REPLACE(UUID(),'-',''), 'OWNER'),
+    (REPLACE(UUID(),'-',''), 'ADMIN');

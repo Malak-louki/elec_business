@@ -24,8 +24,6 @@ public class EmailServiceImpl {
     @Async
     public void sendValidationEmail(String to, String username, String confirmationCode) {
         try {
-            log.info("🔵 Envoi email via Brevo API à: {}", to);
-
             String validationLink = baseUrl + "/api/auth/validate?code=" + confirmationCode;
             String htmlContent = buildEmailContent(username, validationLink);
 

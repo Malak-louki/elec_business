@@ -37,14 +37,9 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
     private final ChargingStationRepository stationRepository;
     private final BookingService bookingService;
 
-    // ====================================================================
-    // STATISTIQUES GLOBALES
-    // ====================================================================
-
     @Override
     @Transactional(readOnly = true)
     public OwnerDashboardStatsDto getOwnerStatistics(User owner) {
-        log.info("Fetching dashboard statistics for owner: {}", owner.getEmail());
 
         // Récupérer toutes les bornes du propriétaire
         List<ChargingStation> stations = stationRepository.findByUser(owner);
@@ -54,37 +49,29 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                 .filter(ChargingStation::isAvailable)
                 .count();
 
-        // Calculer le revenu total
         BigDecimal totalRevenue = bookingService.calculateTotalRevenueForOwner(owner);
 
-        // Calculer le revenu du mois en cours
         LocalDate startOfMonth = YearMonth.now().atDay(1);
         LocalDate endOfMonth = YearMonth.now().atEndOfMonth();
         BigDecimal monthlyRevenue = bookingService.calculateRevenueBetweenDates(owner, startOfMonth, endOfMonth);
 
-        // Compter les réservations
         Long totalBookings = bookingService.countTotalBookingsForOwner(owner);
 
-        // Compter les réservations confirmées
         List<Booking> allBookings = bookingRepository.findByChargingStationUserOrderByCreatedAtDesc(owner);
         long confirmedBookings = allBookings.stream()
                 .filter(b -> b.getBookingStatus() == BookingStatus.CONFIRMED)
                 .count();
 
-        // Compter les réservations à venir
         LocalDateTime now = LocalDateTime.now();
         long upcomingBookings = allBookings.stream()
                 .filter(b -> b.getStartDateTime().isAfter(now))
                 .filter(b -> b.getBookingStatus() == BookingStatus.CONFIRMED || b.getBookingStatus() == BookingStatus.PENDING)
                 .count();
 
-        // Compter les clients uniques
         Long uniqueCustomers = bookingService.countUniqueCustomersForOwner(owner);
 
-        // Calculer le taux d'occupation moyen
         Double averageOccupancyRate = calculateAverageOccupancyRate(stations);
 
-        // Calculer le revenu moyen par réservation
         BigDecimal averageRevenuePerBooking = calculateAverageRevenue(totalRevenue, confirmedBookings);
 
         return OwnerDashboardStatsDto.builder()
@@ -101,10 +88,6 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                 .build();
     }
 
-    // ====================================================================
-    // ANALYTICS DE REVENUS
-    // ====================================================================
-
     @Override
     @Transactional(readOnly = true)
     public RevenueAnalyticsDto getRevenueAnalytics(User owner, LocalDate startDate, LocalDate endDate) {
@@ -115,10 +98,8 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
             throw new BookingValidationException("La date de début doit être avant la date de fin");
         }
 
-        // Calculer le revenu total sur la période
         BigDecimal totalRevenue = bookingService.calculateRevenueBetweenDates(owner, startDate, endDate);
 
-        // Récupérer toutes les réservations confirmées sur la période
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.plusDays(1).atStartOfDay();
 
@@ -129,16 +110,13 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
 
         long bookingsCount = bookings.size();
 
-        // Calculer le revenu moyen par jour
         long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1;
         BigDecimal averageDailyRevenue = daysBetween > 0
                 ? totalRevenue.divide(BigDecimal.valueOf(daysBetween), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
-        // Calculer le revenu moyen par réservation
         BigDecimal averageRevenuePerBooking = calculateAverageRevenue(totalRevenue, bookingsCount);
 
-        // Générer les revenus par jour
         List<RevenueAnalyticsDto.DailyRevenueDto> dailyRevenues = generateDailyRevenues(bookings, startDate, endDate);
 
         return RevenueAnalyticsDto.builder()
@@ -152,27 +130,19 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                 .build();
     }
 
-    // ====================================================================
-    // HISTORIQUE RÉSERVATIONS PAR BORNE
-    // ====================================================================
-
     @Override
     @Transactional(readOnly = true)
     public StationBookingHistoryDto getStationBookingHistory(String stationId, User owner) {
         log.info("Fetching booking history for station {} by owner {}", stationId, owner.getEmail());
 
-        // Vérifier que le propriétaire possède bien cette borne
         ChargingStation station = verifyStationOwnership(stationId, owner);
 
-        // Récupérer toutes les réservations de la borne
         List<BookingResponseDto> bookings = bookingService.getBookingsForStation(stationId, owner);
 
-        // Compter les réservations confirmées
         long confirmedBookings = bookings.stream()
                 .filter(b -> b.getBookingStatus() == BookingStatus.CONFIRMED)
                 .count();
 
-        // Calculer le revenu total
         BigDecimal totalRevenue = bookingService.calculateRevenueForStation(stationId, owner);
 
         return StationBookingHistoryDto.builder()
@@ -186,16 +156,11 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
     }
 
 
-    // ====================================================================
-    // PERFORMANCES PAR BORNE
-    // ====================================================================
-
     @Override
     @Transactional(readOnly = true)
     public StationPerformanceDto getStationPerformance(String stationId, User owner) {
         log.info("Fetching performance for station {} by owner {}", stationId, owner.getEmail());
 
-        // Vérifier la propriété
         ChargingStation station = verifyStationOwnership(stationId, owner);
 
         return buildStationPerformance(station, owner);
@@ -226,32 +191,20 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                 .toList();
     }
 
-    // ====================================================================
-    // MÉTHODES PRIVÉES UTILITAIRES
-    // ====================================================================
-
-    /**
-     * Construit le DTO de performance pour une borne
-     */
     private StationPerformanceDto buildStationPerformance(ChargingStation station, User owner) {
         String stationId = station.getId();
 
-        // Compter les réservations
         Long totalBookings = bookingService.countBookingsForStation(stationId, owner);
         Long confirmedBookings = bookingRepository.countConfirmedBookingsByStation(stationId);
 
-        // Calculer le revenu
         BigDecimal totalRevenue = bookingService.calculateRevenueForStation(stationId, owner);
 
-        // Revenu moyen par réservation
         BigDecimal averageRevenuePerBooking = calculateAverageRevenue(totalRevenue, confirmedBookings);
 
-        // Taux d'occupation (30 derniers jours)
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(30);
         Double occupancyRate = bookingService.calculateOccupancyRate(stationId, startDate, endDate);
 
-        // Clients uniques (approximation : compter les utilisateurs distincts dans les bookings)
         List<Booking> stationBookings = bookingRepository.findConfirmedBookingsByStation(stationId);
         long uniqueCustomers = stationBookings.stream()
                 .map(Booking::getUser)
@@ -259,7 +212,6 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                 .distinct()
                 .count();
 
-        // Heures totales réservées (approximation)
         long totalBookedHours = stationBookings.stream()
                 .mapToLong(b -> java.time.Duration.between(b.getStartDateTime(), b.getEndDateTime()).toHours())
                 .sum();
@@ -279,9 +231,7 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
                 .build();
     }
 
-    /**
-     * Calcule le taux d'occupation moyen de toutes les bornes
-     */
+
     private Double calculateAverageOccupancyRate(List<ChargingStation> stations) {
         if (stations.isEmpty()) {
             return 0.0;
@@ -297,9 +247,6 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         return totalOccupancy / stations.size();
     }
 
-    /**
-     * Calcule le revenu moyen par réservation
-     */
     private BigDecimal calculateAverageRevenue(BigDecimal totalRevenue, long bookingsCount) {
         if (bookingsCount == 0) {
             return BigDecimal.ZERO;
@@ -308,9 +255,6 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         return totalRevenue.divide(BigDecimal.valueOf(bookingsCount), 2, RoundingMode.HALF_UP);
     }
 
-    /**
-     * Génère les revenus quotidiens pour une période
-     */
     private List<RevenueAnalyticsDto.DailyRevenueDto> generateDailyRevenues(
             List<Booking> bookings,
             LocalDate startDate,
@@ -341,9 +285,6 @@ public class OwnerDashboardServiceImpl implements OwnerDashboardService {
         return dailyRevenues;
     }
 
-    /**
-     * Vérifie que l'utilisateur est propriétaire de la borne
-     */
     private ChargingStation verifyStationOwnership(String stationId, User owner) {
         ChargingStation station = stationRepository.findById(stationId)
                 .orElseThrow(() -> new BookingValidationException("Borne introuvable"));

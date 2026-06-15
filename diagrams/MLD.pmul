@@ -1,0 +1,241 @@
+@startuml MLD_ElecBusiness
+
+!define TABLE_COLOR #E8F4F8
+!define PK_COLOR #FFD700
+!define FK_COLOR #87CEEB
+
+skinparam class {
+    BackgroundColor TABLE_COLOR
+    BorderColor #333333
+    ArrowColor #555555
+    FontSize 10
+}
+
+title Modèle Logique de Données - Elec Business
+
+' ========================================
+' TABLE: user_table
+' ========================================
+entity user_table {
+    **#id : VARCHAR(36) <<PK>>**
+    ==
+    first_name : VARCHAR(50) NOT NULL
+    last_name : VARCHAR(50) NOT NULL
+    email : VARCHAR(255) NOT NULL UNIQUE
+    password : VARCHAR(100) NOT NULL
+    phone : VARCHAR(20) UNIQUE
+    user_status : VARCHAR(20) NOT NULL
+    date_of_birth : DATE
+    --
+    *address_id : VARCHAR(36) <<FK>>*
+    --
+    created_at : TIMESTAMP(6) NOT NULL
+    updated_at : TIMESTAMP(6) NOT NULL
+}
+
+' ========================================
+' TABLE: role
+' ========================================
+entity role {
+    **#id : VARCHAR(36) <<PK>>**
+    ==
+    name : VARCHAR(100) NOT NULL UNIQUE
+    --
+    created_at : TIMESTAMP(6) NOT NULL
+    updated_at : TIMESTAMP(6) NOT NULL
+}
+
+' ========================================
+' TABLE: user_role (Association)
+' ========================================
+entity user_role {
+    **#user_id : VARCHAR(36) <<PK,FK>>**
+    **#role_id : VARCHAR(36) <<PK,FK>>**
+}
+
+' ========================================
+' TABLE: address
+' ========================================
+entity address {
+    **#id : VARCHAR(36) <<PK>>**
+    ==
+    street : VARCHAR(255) NOT NULL
+    number : VARCHAR(50)
+    city : VARCHAR(100) NOT NULL
+    postal_code : VARCHAR(20) NOT NULL
+    country : VARCHAR(100) NOT NULL DEFAULT 'France'
+    --
+    created_at : TIMESTAMP(6) NOT NULL
+    updated_at : TIMESTAMP(6) NOT NULL
+}
+
+' ========================================
+' TABLE: charging_location
+' ========================================
+entity charging_location {
+    **#id : VARCHAR(36) <<PK>>**
+    ==
+    latitude : DECIMAL(10,8) NOT NULL
+    longitude : DECIMAL(11,8) NOT NULL
+    available : BOOLEAN DEFAULT TRUE
+    --
+    *address_id : VARCHAR(36) <<FK>>*
+    --
+    created_at : TIMESTAMP(6) NOT NULL
+    updated_at : TIMESTAMP(6) NOT NULL
+}
+
+' ========================================
+' TABLE: charging_station
+' ========================================
+entity charging_station {
+    **#id : VARCHAR(36) <<PK>>**
+    ==
+    name : VARCHAR(255) NOT NULL
+    hourly_price : DECIMAL(5,2) NOT NULL
+    charging_power_kw : DECIMAL(6,2) NOT NULL
+    charging_power : VARCHAR(15)
+    instruction : TEXT
+    has_stand : BOOLEAN DEFAULT FALSE
+    media : VARCHAR(500)
+    available : BOOLEAN DEFAULT TRUE
+    --
+    *user_id : VARCHAR(36) NOT NULL <<FK>>*
+    *charging_location_id : VARCHAR(36) NOT NULL <<FK>>*
+    --
+    created_at : TIMESTAMP(6) NOT NULL
+    updated_at : TIMESTAMP(6) NOT NULL
+}
+
+' ========================================
+' TABLE: availability
+' ========================================
+entity availability {
+    **#id : VARCHAR(36) <<PK>>**
+    ==
+    availability_day : DATE NOT NULL
+    start_time : TIME NOT NULL
+    end_time : TIME NOT NULL
+    --
+    created_at : TIMESTAMP(6) NOT NULL
+    updated_at : TIMESTAMP(6) NOT NULL
+}
+
+' ========================================
+' TABLE: charging_station_availability (Association)
+' ========================================
+entity charging_station_availability {
+    **#charging_station_id : VARCHAR(36) <<PK,FK>>**
+    **#availability_id : VARCHAR(36) <<PK,FK>>**
+}
+
+' ========================================
+' TABLE: booking
+' ========================================
+entity booking {
+    **#id : VARCHAR(36) <<PK>>**
+    ==
+    start_date_time : DATETIME NOT NULL
+    end_date_time : DATETIME NOT NULL
+    total_amount : DECIMAL(10,2) NOT NULL
+    booking_status : VARCHAR(20) NOT NULL
+    invoice_path : VARCHAR(500)
+    expires_at : TIMESTAMP
+    --
+    *user_id : VARCHAR(36) NOT NULL <<FK>>*
+    *charging_station_id : VARCHAR(36) NOT NULL <<FK>>*
+    *payment_id : VARCHAR(36) <<FK>>*
+    --
+    created_at : TIMESTAMP(6) NOT NULL
+    updated_at : TIMESTAMP(6) NOT NULL
+}
+
+' ========================================
+' TABLE: payment
+' ========================================
+entity payment {
+    **#id : VARCHAR(36) <<PK>>**
+    ==
+    stripe_payment_intent_id : VARCHAR(255) NOT NULL
+    payment_status : VARCHAR(30) NOT NULL
+    --
+    created_at : TIMESTAMP(6) NOT NULL
+    updated_at : TIMESTAMP(6) NOT NULL
+}
+
+' ========================================
+' TABLE: user_validation
+' ========================================
+entity user_validation {
+    **#id : VARCHAR(36) <<PK>>**
+    ==
+    confirmation_code : VARCHAR(255) NOT NULL
+    validated_at : TIMESTAMP
+    --
+    *user_id : VARCHAR(36) NOT NULL <<FK>>*
+    --
+    created_at : TIMESTAMP(6) NOT NULL
+    updated_at : TIMESTAMP(6) NOT NULL
+}
+
+' ========================================
+' RELATIONS (FOREIGN KEYS)
+' ========================================
+
+' user_table → address
+user_table }o--|| address : "FK: address_id"
+
+' user_table ↔ role (via user_role)
+user_table ||--o{ user_role : "FK: user_id"
+role ||--o{ user_role : "FK: role_id"
+
+' user_table → charging_station
+user_table ||--o{ charging_station : "FK: user_id"
+
+' user_table → booking
+user_table ||--o{ booking : "FK: user_id"
+
+' user_table → user_validation
+user_table ||--o{ user_validation : "FK: user_id"
+
+' address → charging_location
+address ||--o{ charging_location : "FK: address_id"
+
+' charging_location → charging_station
+charging_location ||--o{ charging_station : "FK: charging_location_id"
+
+' charging_station ↔ availability (via charging_station_availability)
+charging_station ||--o{ charging_station_availability : "FK: charging_station_id"
+availability ||--o{ charging_station_availability : "FK: availability_id"
+
+' charging_station → booking
+charging_station ||--o{ booking : "FK: charging_station_id"
+
+' payment → booking
+payment ||--o| booking : "FK: payment_id"
+
+' ========================================
+' LÉGENDE
+' ========================================
+
+legend right
+    **Notation:**
+    • **#** = Clé Primaire (PK)
+    • ***** = Clé Étrangère (FK)
+    • **||** = Cardinalité 1
+    • **}o** = Cardinalité 0..*
+    • **o{** = Cardinalité 0..*
+
+    **Contraintes:**
+    • NOT NULL = Obligatoire
+    • UNIQUE = Valeur unique
+    • DEFAULT = Valeur par défaut
+
+    **Types ENUM:**
+    • user_status: PENDING, ACTIVE, SUSPENDED, BANNED
+    • booking_status: PENDING, CONFIRMED, CANCELLED, COMPLETED, EXPIRED
+    • payment_status: PENDING, SUCCEEDED, FAILED, CANCELLED
+    • role.name: USER, OWNER, ADMIN
+end legend
+
+@enduml

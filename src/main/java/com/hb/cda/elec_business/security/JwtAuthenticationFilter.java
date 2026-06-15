@@ -25,7 +25,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
 
-    // Endpoints publics à exclure du filtre JWT
     private static final List<String> PUBLIC_ENDPOINTS = List.of(
             "/api/auth/login",
             "/api/auth/register",
@@ -41,7 +40,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
-        // SKIP les endpoints publics
         String path = request.getRequestURI();
         if (isPublicEndpoint(path) || request.getMethod().equals("OPTIONS")) {
             filterChain.doFilter(request, response);
@@ -49,12 +47,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         final String authHeader = request.getHeader("Authorization");
-
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
-
         try {
             final String jwt = authHeader.substring(7);
             final String userEmail = jwtService.extractUsernameFromToken(jwt);
@@ -70,17 +66,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                    log.debug("✅ User authenticated: {}", userEmail);
                 }
             }
         } catch (Exception e) {
             log.error("❌ JWT authentication error: {}", e.getMessage());
         }
-
         filterChain.doFilter(request, response);
     }
 
-    // Vérifie si l'endpoint est public
     private boolean isPublicEndpoint(String path) {
         return PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
     }

@@ -33,20 +33,14 @@ public class UserValidationServiceImpl {
      */
     @Transactional
     public void createAndSendValidation(User user) {
-        // Génère un code unique
         String confirmationCode = UUID.randomUUID().toString();
 
-        // Crée l'entité UserValidation
         UserValidation validation = new UserValidation();
         validation.setConfirmationCode(confirmationCode);
         validation.setUser(user);
-        // validatedAt reste null jusqu'à la validation
 
         validationRepository.save(validation);
 
-        log.info("Code de validation créé pour l'utilisateur {}", user.getEmail());
-
-        // Envoie l'email (asynchrone)
         emailService.sendValidationEmail(
                 user.getEmail(),
                 user.getFirstName(),
@@ -129,10 +123,8 @@ public class UserValidationServiceImpl {
         // Invalide les anciennes validations non utilisées
         validationRepository.deleteByUserAndValidatedAtIsNull(user);
 
-        // Crée une nouvelle validation
         createAndSendValidation(user);
 
-        log.info("Email de validation renvoyé à {}", email);
         return true;
     }
 }

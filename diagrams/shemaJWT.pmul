@@ -1,0 +1,73 @@
+@startuml JWT_NoOverlap
+
+skinparam backgroundColor #0A1628
+skinparam defaultFontColor #FFFFFF
+skinparam ArrowColor #F59E0B
+skinparam ArrowThickness 2
+skinparam ranksep 120
+skinparam nodesep 150
+
+title JWT + RBAC - Elec Business
+
+' ============== COMPOSANTS ==============
+rectangle "Client" as Client #3B82F6
+rectangle "Backend" as Backend #1E3A8A
+rectangle "JwtService" as JWT #8B5CF6
+rectangle "Filter" as Filter #DC2626
+rectangle "Security" as SC #059669
+rectangle "Controller" as Ctrl #6366F1
+database "MySQL" as DB #059669
+
+' ============== LOGIN ==============
+Client -right-> Backend : ① Login
+Backend -down-> DB : Verify
+DB -up-> Backend : User + Roles
+Backend -down-> JWT : Generate
+JWT -up-> Backend : Token
+Backend -left-> Client : ② Token
+
+' Espacement vertical
+Backend -[hidden]down-> Filter
+
+' ============== REQUEST ==============
+Client -right-> Backend : ③ Request
+
+Backend -down-> Filter : doFilter
+
+Filter -> Filter : Extract
+
+Filter -right-> JWT : ④ extractUsername
+JWT -left-> Filter : email
+
+Filter -down-> DB : ⑤ loadUser
+DB -up-> Filter : UserDetails
+
+Filter -right-> JWT : ⑥ isTokenValid
+JWT -left-> Filter : Valid
+
+Filter -down-> SC : ⑦ SetAuth
+
+SC -down-> Ctrl : ⑧ RBAC
+
+Ctrl -left-> Client : OK/403
+
+' ============== NOTES ==============
+note right of JWT #2D1B69
+  **JWT:**
+  HS256, Base64
+  24h expiration
+end note
+
+note left of Client #2D1B69
+  **localStorage**
+end note
+
+note bottom of Filter #2D1B69
+  **Ordre:**
+  1. Extract email
+  2. Load user DB
+  3. Validate token
+  4. Set Auth
+end note
+
+@enduml

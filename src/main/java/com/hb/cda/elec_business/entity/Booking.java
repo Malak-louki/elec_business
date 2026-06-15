@@ -14,75 +14,39 @@ public class Booking extends Auditable {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    /**
-     * Date et heure de début de la réservation
-     * Timezone : Europe/Paris
-     */
+
     @Column(name = "start_date_time", nullable = false)
     private LocalDateTime startDateTime;
 
-    /**
-     * Date et heure de fin de la réservation
-     * Doit être après startDateTime (vérifié en BDD + code)
-     */
     @Column(name = "end_date_time", nullable = false)
     private LocalDateTime endDateTime;
 
-    /**
-     * Montant total calculé et dû pour cette réservation
-     * Calculé automatiquement : prix_horaire × durée_arrondie
-     *
-     * NOTE : Ce montant est calculé à la création, AVANT le paiement.
-     * Il représente ce que l'utilisateur DOIT payer, pas ce qu'il A payé.
-     */
     @Column(name = "total_amount", precision = 7, scale = 2, nullable = false)
     private BigDecimal totalAmount;
 
-    /**
-     * Statut actuel de la réservation
-     * Cycle : PENDING → CONFIRMED → COMPLETED
-     * Alternatives : CANCELLED, EXPIRED
-     */
     @Enumerated(EnumType.STRING)
     @Column(name = "booking_status", nullable = false, length = 20)
     private BookingStatus bookingStatus;
 
-    /**
-     * Date limite pour effectuer le paiement
-     * Calculé à la création : now + timeout (15 min par défaut)
-     * Si dépassé → statut passe à EXPIRED automatiquement
-     */
     @Column(name = "expires_at")
     private Instant expiresAt;
 
-    /**
-     * Utilisateur qui a effectué la réservation
-     */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    /**
-     * Paiement associé (null tant que statut = PENDING ou EXPIRED)
-     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payment_id")
     private Payment payment;
 
-    /**
-     * Borne de recharge réservée
-     */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "charging_station_id", nullable = false)
     private ChargingStation chargingStation;
 
-    /**
-     * Chemin vers la facture PDF générée
-     */
     @Column(name = "invoice_path", length = 512)
     private String invoicePath;
 
-    // Constructeurs
+
     public Booking() {
     }
 
@@ -94,7 +58,6 @@ public class Booking extends Auditable {
         this.bookingStatus = bookingStatus;
     }
 
-    // Getters et Setters
     public String getId() {
         return id;
     }

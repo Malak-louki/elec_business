@@ -1,0 +1,34 @@
+@startuml CI_UltraSimple
+
+skinparam backgroundColor #0A1628
+skinparam defaultFontColor #FFFFFF
+
+title Pipeline CI - GitHub Actions
+
+rectangle "TRIGGER" #3B82F6 {
+  card "Push/PR\nmain/develop" as trigger
+}
+
+rectangle "CI STEPS" #1E3A8A {
+  card "① Setup\nJava 21\nMySQL 8.0" as setup
+  card "② Build & Test\nmvnw verify" as test #8B5CF6
+  card "③ Upload JAR\nartifact" as upload
+}
+
+rectangle "RÉSULTAT" #059669 {
+  card "✅ SUCCESS\nou\n❌ FAILED" as result
+}
+
+trigger -down-> setup
+setup -down-> test
+test -down-> upload : Tests OK
+upload -down-> result
+
+note right of test
+  **CRITIQUE**
+  Tests unitaires
+  Tests intégration
+  Si échec → STOP
+end note
+
+@enduml

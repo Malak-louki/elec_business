@@ -30,14 +30,11 @@ public class UserServiceImpl implements UserService {
     public UpgradeResponseDto upgradeToOwner(User currentUser) {
         log.info("🔄 Starting upgrade process for user: {}", currentUser.getEmail());
 
-        // Vérifier que l'utilisateur est ACTIVE
         if (currentUser.getUserStatus() != UserStatus.ACTIVE) {
             log.error("❌ Cannot upgrade inactive user: {}", currentUser.getEmail());
             throw new IllegalStateException("Le compte doit être activé pour devenir propriétaire");
         }
 
-        // Récupérer le rôle OWNER
-        log.info("🔍 Fetching OWNER role...");
         Role ownerRole = roleRepository.findByName(RoleName.OWNER)
                 .orElseThrow(() -> new IllegalStateException("OWNER role not found - RoleInitializer may have failed"));
         log.info("✅ OWNER role found");
@@ -51,12 +48,8 @@ public class UserServiceImpl implements UserService {
             throw new IllegalStateException("L'utilisateur a déjà le rôle de propriétaire");
         }
 
-        // Ajouter le rôle OWNER
-        log.info("➕ Adding OWNER role to user...");
         currentUser.getRoles().add(ownerRole);
         User updatedUser = userRepository.save(currentUser);
-
-        log.info("✅ User {} successfully upgraded to OWNER", currentUser.getEmail());
 
         // Construire la réponse
         List<String> roleNames = updatedUser.getRoles().stream()

@@ -41,10 +41,8 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponseDto register(RegisterRequestDto request) {
-        log.info("=== AuthService.register() CALLED ===");
-        log.info("Checking if email exists: {}", request.getEmail());
 
-        // 1. Règles métier
+
         if (userRepository.existsByEmail(request.getEmail())) {
             log.warn("Email already exists: {}", request.getEmail());
             throw new IllegalArgumentException("Email already exists");
@@ -55,13 +53,10 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Phone number already exists");
         }
 
-        // 2. Rôle par défaut - Le rôle USER existe maintenant grâce au RoleInitializer
-        log.info("Fetching USER role...");
+
         Role userRole = roleRepository.findByName(RoleName.USER)
                 .orElseThrow(() -> new IllegalStateException("USER role not found - RoleInitializer may have failed"));
-        log.info("Role found: {}", userRole.getName());
 
-        // 3. Construction de l'entité User
         log.info("Creating new user entity...");
         User user = new User();
         user.setEmail(request.getEmail());
@@ -74,30 +69,20 @@ public class AuthServiceImpl implements AuthService {
         roles.add(userRole);
         user.setRoles(roles);
 
-        // 4. Persistance
-        log.info("Saving user to database...");
         User savedUser = userRepository.save(user);
-        log.info("User saved with ID: {}", savedUser.getId());
 
-        // 5. Création du code de validation et envoi de l'email
-        log.info("Creating validation code and sending email...");
+
         try {
             validationService.createAndSendValidation(savedUser);
-            log.info("Validation email sent successfully");
         } catch (Exception e) {
             log.error("Failed to send validation email", e);
-            // Continue quand même, l'utilisateur est créé
+
         }
 
-        // 6. Génération du token
-        log.info("Generating JWT token...");
         String accessToken = jwtService.generateAccessToken(savedUser);
 
-        // 7. Mapping DTO
-        log.info("Mapping user to DTO...");
         UserResponseDto userDto = UserMapper.toDto(savedUser);
 
-        log.info("=== Registration complete for: {} ===", request.getEmail());
         return AuthResponseDto.builder()
                 .accessToken(accessToken)
                 .tokenType("Bearer")
@@ -107,37 +92,28 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponseDto login(LoginRequestDto loginRequestDto) {
-        log.info("=== AuthService.login() CALLED ===");
-        log.info("Attempting authentication for: {}", loginRequestDto.getEmail());
+
 
         try {
-            // 1. Authentification Spring Security
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             loginRequestDto.getEmail(),
                             loginRequestDto.getPassword()
                     )
             );
-            log.info("Authentication successful");
 
-            // 2. Récupération de l'utilisateur authentifié
             User user = (User) authentication.getPrincipal();
             log.info("User retrieved: {} (ID: {})", user.getEmail(), user.getId());
 
-            // 3. Double Vérification du statut
             if (user.getUserStatus() != UserStatus.ACTIVE) {
                 log.warn("User status is not ACTIVE: {}", user.getUserStatus());
                 throw new DisabledException("Account is not activated yet, please check your email.");
             }
 
-            // 4. Génération du token JWT
-            log.info("Generating JWT token...");
             String accessToken = jwtService.generateAccessToken(user);
 
-            // 5. Mapping vers DTO
             UserResponseDto userDto = UserMapper.toDto(user);
 
-            log.info("=== Login complete for: {} ===", loginRequestDto.getEmail());
             return AuthResponseDto.builder()
                     .accessToken(accessToken)
                     .tokenType("Bearer")

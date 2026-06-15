@@ -1,0 +1,234 @@
+@startuml MCD_ElecBusiness
+
+!define ENTITY_COLOR #E8F4F8
+!define RELATION_COLOR #87CEEB
+
+skinparam class {
+    BackgroundColor ENTITY_COLOR
+    BorderColor #333333
+    ArrowColor #555555
+    FontSize 11
+}
+
+' ========================================
+' ENTITÉS PRINCIPALES
+' ========================================
+
+class User {
+    **PK** id : VARCHAR(36)
+    --
+    firstName : VARCHAR(50)
+    lastName : VARCHAR(50)
+    email : VARCHAR(255) <<unique>>
+    password : VARCHAR(100)
+    phone : VARCHAR(20) <<unique>>
+    userStatus : ENUM
+    dateOfBirth : DATE
+    --
+    FK address_id : VARCHAR(36)
+    --
+    **Audit**
+    created_at : TIMESTAMP(6)
+    updated_at : TIMESTAMP(6)
+}
+
+class Role {
+    **PK** id : VARCHAR(36)
+    --
+    name : VARCHAR(100) <<unique>>
+    --
+    **Audit**
+    created_at : TIMESTAMP(6)
+    updated_at : TIMESTAMP(6)
+}
+
+class Address {
+    **PK** id : VARCHAR(36)
+    --
+    street : VARCHAR(255)
+    number : VARCHAR(50)
+    city : VARCHAR(100)
+    postal_code : VARCHAR(20)
+    country : VARCHAR(100)
+    --
+    **Audit**
+    created_at : TIMESTAMP(6)
+    updated_at : TIMESTAMP(6)
+}
+
+class ChargingLocation {
+    **PK** id : VARCHAR(36)
+    --
+    latitude : DECIMAL(10,8)
+    longitude : DECIMAL(11,8)
+    available : BOOLEAN
+    --
+    FK address_id : VARCHAR(36)
+    --
+    **Audit**
+    created_at : TIMESTAMP(6)
+    updated_at : TIMESTAMP(6)
+}
+
+class ChargingStation {
+    **PK** id : VARCHAR(36)
+    --
+    name : VARCHAR(255)
+    hourlyPrice : DECIMAL(5,2)
+    chargingPowerKw : DECIMAL(6,2)
+    chargingPower : VARCHAR(15)
+    instruction : TEXT
+    hasStand : BOOLEAN
+    media : VARCHAR(500)
+    available : BOOLEAN
+    --
+    FK user_id : VARCHAR(36)
+    FK charging_location_id : VARCHAR(36)
+    --
+    **Audit**
+    created_at : TIMESTAMP(6)
+    updated_at : TIMESTAMP(6)
+}
+
+class Availability {
+    **PK** id : VARCHAR(36)
+    --
+    day : DATE
+    startTime : TIME
+    endTime : TIME
+    --
+    **Audit**
+    created_at : TIMESTAMP(6)
+    updated_at : TIMESTAMP(6)
+}
+
+class Booking {
+    **PK** id : VARCHAR(36)
+    --
+    startDateTime : DATETIME
+    endDateTime : DATETIME
+    totalAmount : DECIMAL(10,2)
+    bookingStatus : ENUM
+    invoicePath : VARCHAR(500)
+    expiresAt : TIMESTAMP
+    --
+    FK user_id : VARCHAR(36)
+    FK charging_station_id : VARCHAR(36)
+    FK payment_id : VARCHAR(36)
+    --
+    **Audit**
+    created_at : TIMESTAMP(6)
+    updated_at : TIMESTAMP(6)
+}
+
+class Payment {
+    **PK** id : VARCHAR(36)
+    --
+    stripePaymentIntentId : VARCHAR(255)
+    paymentStatus : ENUM
+    --
+    **Audit**
+    created_at : TIMESTAMP(6)
+    updated_at : TIMESTAMP(6)
+}
+
+class UserValidation {
+    **PK** id : VARCHAR(36)
+    --
+    confirmationCode : VARCHAR(255)
+    validatedAt : TIMESTAMP
+    --
+    FK user_id : VARCHAR(36)
+    --
+    **Audit**
+    created_at : TIMESTAMP(6)
+    updated_at : TIMESTAMP(6)
+}
+
+' ========================================
+' TABLES D'ASSOCIATION (MANY-TO-MANY)
+' ========================================
+
+class user_role <<(J,orchid) Join Table>> {
+    **PK** user_id : VARCHAR(36)
+    **PK** role_id : VARCHAR(36)
+}
+
+class charging_station_availability <<(J,orchid) Join Table>> {
+    **PK** charging_station_id : VARCHAR(36)
+    **PK** availability_id : VARCHAR(36)
+}
+
+' ========================================
+' ENUMS (LÉGENDE)
+' ========================================
+
+note right of User
+    **UserStatus:**
+    • PENDING
+    • ACTIVE
+    • SUSPENDED
+    • BANNED
+end note
+
+note right of Role
+    **RoleName:**
+    • USER
+    • OWNER
+    • ADMIN
+end note
+
+note right of Booking
+    **BookingStatus:**
+    • PENDING
+    • CONFIRMED
+    • CANCELLED
+    • COMPLETED
+    • EXPIRED
+end note
+
+note right of Payment
+    **PaymentStatus:**
+    • PENDING
+    • SUCCEEDED
+    • FAILED
+    • CANCELLED
+end note
+
+' ========================================
+' RELATIONS
+' ========================================
+
+' User ↔ Address (Many-to-One)
+User "0..*" --> "0..1" Address : possède >
+
+' User ↔ Role (Many-to-Many via user_role)
+User "0..*" -- "0..*" Role
+(User, Role) .. user_role
+
+' User ↔ ChargingStation (One-to-Many)
+User "1" -- "0..*" ChargingStation : possède >
+
+' User ↔ Booking (One-to-Many)
+User "1" -- "0..*" Booking : effectue >
+
+' User ↔ UserValidation (One-to-Many)
+User "1" -- "0..*" UserValidation : nécessite >
+
+' Address ↔ ChargingLocation (One-to-Many)
+Address "1" -- "0..*" ChargingLocation : localise >
+
+' ChargingLocation ↔ ChargingStation (One-to-Many)
+ChargingLocation "1" -- "0..*" ChargingStation : contient >
+
+' ChargingStation ↔ Availability (Many-to-Many)
+ChargingStation "0..*" -- "0..*" Availability
+(ChargingStation, Availability) .. charging_station_availability
+
+' ChargingStation ↔ Booking (One-to-Many)
+ChargingStation "1" -- "0..*" Booking : reçoit >
+
+' Booking ↔ Payment (One-to-One)
+Booking "1" -- "0..1" Payment : associé à >
+
+@enduml

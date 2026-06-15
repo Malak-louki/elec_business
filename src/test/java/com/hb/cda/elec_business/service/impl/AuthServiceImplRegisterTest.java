@@ -63,10 +63,8 @@ class AuthServiceImplRegisterTest {
         validRequest.setPassword("test123456");
         validRequest.setUsername("test");
         validRequest.setLastName("TestLastName");
-
         userRole = new Role();
         userRole.setName(RoleName.USER);
-
         testUuid = UUID.randomUUID().toString();
     }
 

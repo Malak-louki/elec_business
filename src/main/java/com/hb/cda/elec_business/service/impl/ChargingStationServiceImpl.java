@@ -36,10 +36,10 @@ public class ChargingStationServiceImpl implements ChargingStationService {
     public ChargingStationResponseDto createStation(ChargingStationRequestDto request, User owner) {
         log.info("Creating charging station '{}' for user {}", request.getName(), owner.getEmail());
 
-        // 1. Auto-attribution du rôle OWNER si nécessaire
+        // 1. Auto-attribution du rôle OWNER
         ensureUserHasOwnerRole(owner);
 
-        // 2. Gestion de l'adresse (réutilisation ou création)
+        // 2. Gestion de l'adresse
         Address address = findOrCreateAddress(request.getAddress());
 
         // 3. Création de la ChargingLocation
@@ -99,7 +99,7 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         station.setHasStand(request.getHasStand() != null ? request.getHasStand() : false);
         station.setMedia(request.getMediaUrl());
 
-        // Mise à jour de l'adresse et de la location si nécessaire
+        // Mise à jour de l'adresse et de la location
         if (request.getAddress() != null && request.getLocation() != null) {
             Address address = findOrCreateAddress(request.getAddress());
             ChargingLocation location = station.getChargingLocation();
@@ -130,7 +130,6 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         ChargingStation station = stationRepository.findByIdWithRelations(stationId)
                 .orElseThrow(() -> new IllegalArgumentException("Charging station not found with ID: " + stationId));
 
-        // Vérification que l'utilisateur est le propriétaire
         if (!station.getUser().getId().equals(owner.getId())) {
             throw new AccessDeniedException("You are not authorized to delete this charging station");
         }
@@ -180,14 +179,6 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         return ChargingStationMapper.toResponseDtoList(stations);
     }
 
-    // ====================================================================
-    // MÉTHODES PRIVÉES UTILITAIRES
-    // ====================================================================
-
-    /**
-     * Assure que l'utilisateur a le rôle OWNER
-     * Si ce n'est pas le cas, on l'ajoute automatiquement
-     */
     private void ensureUserHasOwnerRole(User user) {
         Role ownerRole = roleRepository.findByName(RoleName.OWNER)
                 .orElseThrow(() -> new IllegalStateException("Role OWNER not found in database"));
@@ -202,10 +193,6 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         }
     }
 
-    /**
-     * Trouve une adresse existante ou en crée une nouvelle
-     * Évite les doublons en BDD
-     */
     private Address findOrCreateAddress(AddressDto dto) {
         return addressRepository
                 .findByStreetAndNumberAndCityAndPostalCodeAndCountry(
@@ -222,9 +209,7 @@ public class ChargingStationServiceImpl implements ChargingStationService {
                 });
     }
 
-    /**
-     * Traite les disponibilités : réutilise les existantes ou crée de nouvelles
-     */
+
     private Set<Availability> processAvailabilities(List<AvailabilityDto> dtos) {
         Set<Availability> availabilities = new HashSet<>();
 
@@ -243,10 +228,7 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         return availabilities;
     }
 
-    /**
-     * Formate une puissance numérique en chaîne avec unité
-     * Ex: 7.4 → "7.4 kW", 22 → "22 kW", 150 → "150 kW"
-     */
+
     private String formatPower(BigDecimal powerKw) {
         if (powerKw == null) {
             return null;
